@@ -681,6 +681,11 @@
         </div>
     </section>
 
+    <!-- Dynamic Forms Inbound Engine -->
+    <section class="container" style="padding-bottom: 100px;">
+        <div id="dynamic-forms-container" style="max-width: 600px; margin: 0 auto;"></div>
+    </section>
+
     <footer>
         <div class="container">
             <div class="footer-top">
@@ -706,9 +711,7 @@
 
         const fetchUrl = userId ? `/api/data?user_id=${userId}&lang=${lang}` : 'data.json';
         
-        fetch(fetchUrl)
-            .then(response => response.json())
-            .then(data => {
+        function renderPage(data) {
                 
                 // 1. Inject Hero Content
                 document.getElementById('hero-tag').textContent = data.hero.tagline;
@@ -849,27 +852,67 @@
     
                 // Insights
                 const insightsLeft = document.getElementById('insights-left');
-                if (insightsLeft) {
+                if (insightsLeft && data.insightsSection) {
                     insightsLeft.innerHTML = `
                         <span class="section-tag">${data.insightsSection.tag}</span>
                         <h2>${data.insightsSection.title}</h2>
-                        <a href="#" class="btn btn-outline" style="border-color: rgba(255,255,255,0.2); color: #fff; margin-top: 1rem;">${data.insightsSection.buttonText}</a>
+                        <a href="#" class="btn btn-outline" style="margin-top: 1rem;">${data.insightsSection.buttonText}</a>
                     `;
                 }
     
                 const insightsGrid = document.getElementById('insights-grid');
-                if (insightsGrid) {
+                if (insightsGrid && data.insightsSection) {
                     data.insightsSection.items.forEach(item => {
                         insightsGrid.innerHTML += `
                             <div class="insight-card">
-                                <img src="${item.image}" alt="${item.title}">
-                                <div class="insight-content">
-                                    <span class="insight-date">${item.date}</span>
-                                    <h4>${item.title}</h4>
-                                    <a href="#" class="read-more">Read More <i class="fa-solid fa-arrow-right"></i></a>
-                                </div>
+                                <div><span class="insight-category">${item.category}</span><span class="insight-date">${item.date}</span></div>
+                                <h4>${item.title}</h4>
                             </div>
                         `;
+                    });
+                }
+                
+                // Dynamic Forms Renderer
+                const formsContainer = document.getElementById('dynamic-forms-container');
+                if (formsContainer && data.forms && data.forms.length > 0) {
+                    formsContainer.innerHTML = `
+                        <div style="text-align: center; margin-bottom: 30px;">
+                            <span class="section-tag" style="background: rgba(208, 170, 105, 0.1); color: var(--accent); padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; text-transform: uppercase; font-weight: 600; letter-spacing: 1px;">Inquiries</span>
+                            <h2 style="font-size: 2.5rem; margin-top: 10px;">Get in Touch</h2>
+                        </div>
+                    `;
+                    
+                    data.forms.forEach(form => {
+                        let html = `
+                            <div class="form-card" style="background: var(--surface-light); border: 1px solid var(--border); border-radius: 8px; padding: 30px; margin-bottom: 40px;">
+                                <h3 style="margin-bottom: 20px; font-size: 1.5rem;">${form.title}</h3>
+                                <form id="dynamic-form-${form.id}" onsubmit="submitDynamicForm(event, '${form.id}')">
+                        `;
+                        
+                        form.fields.forEach(field => {
+                            html += `<div style="margin-bottom: 15px;">`;
+                            html += `<label style="display: block; margin-bottom: 8px; font-weight: 500; font-size: 0.9rem; color: #ccc;">${field.label}</label>`;
+                            
+                            const commonStyles = `width: 100%; padding: 12px; background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: 4px; color: white; font-family: inherit; box-sizing: border-box;`;
+                            
+                            if (field.type === 'textarea') {
+                                html += `<textarea name="${field.label}" style="${commonStyles}" rows="4" required></textarea>`;
+                            } else if (field.type === 'email') {
+                                html += `<input type="email" name="${field.label}" style="${commonStyles}" required>`;
+                            } else {
+                                html += `<input type="text" name="${field.label}" style="${commonStyles}" required>`;
+                            }
+                            html += `</div>`;
+                        });
+                        
+                        html += `
+                                    <button type="submit" class="btn" style="width: 100%; margin-top: 10px; background: var(--accent); color: var(--bg-dark);">Submit Response</button>
+                                    <div id="form-msg-${form.id}" style="margin-top: 15px; text-align: center; font-size: 0.9rem; display: none;"></div>
+                                </form>
+                            </div>
+                        `;
+                        
+                        formsContainer.innerHTML += html;
                     });
                 }
     
@@ -926,9 +969,66 @@
                         footerLinks.innerHTML += `<a href="#">${link}</a>\n`;
                     });
                 }
-    
-            })
-            .catch(error => console.error('Error loading data:', error));
+        }
+
+        const serverPayloadElement = document.getElementById('server-payload');
+        if (serverPayloadElement) {
+            try {
+                const serverData = JSON.parse(serverPayloadElement.textContent);
+                // Extract the active payload matrix correctly
+                const activeData = (serverData.published && serverData.published[lang]) ? serverData.published[lang] : serverData;
+                renderPage(activeData);
+            } catch (e) {
+                console.error("SSR Hydration Failed. Falling back to client fetch.", e);
+                fetchData();
+            }
+        } else {
+            fetchData();
+        }
+
+        function fetchData() {
+            fetch(fetchUrl)
+                .then(response => response.json())
+                .then(data => renderPage(data))
+                .catch(error => console.error('Error fetching data:', error));
+        }
+
+        // Form Submission Logic
+        window.submitDynamicForm = async function(e, formId) {
+            e.preventDefault();
+            const formObj = document.getElementById(`dynamic-form-${formId}`);
+            const msgDiv = document.getElementById(`form-msg-${formId}`);
+            const formData = new FormData(formObj);
+            
+            const payload = {};
+            formData.forEach((value, key) => { payload[key] = value; });
+            
+            msgDiv.style.display = 'block';
+            msgDiv.style.color = '#aaa';
+            msgDiv.textContent = 'Submitting...';
+            
+            try {
+                const targetUrl = userId ? `/api/submit-form/${formId}?user_id=${userId}&lang=${lang}` : '/api/submit-form/' + formId;
+                const response = await fetch(targetUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    msgDiv.style.color = '#2ecc71';
+                    msgDiv.textContent = 'Message sent successfully!';
+                    formObj.reset();
+                } else {
+                    msgDiv.style.color = '#e74c3c';
+                    msgDiv.textContent = result.message || 'Error sending message.';
+                }
+            } catch (err) {
+                msgDiv.style.color = '#e74c3c';
+                msgDiv.textContent = 'Network error. Please try again later.';
+            }
+        };
     </script>
 </body>
 </html>
