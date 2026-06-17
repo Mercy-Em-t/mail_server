@@ -96,6 +96,21 @@ app.post('/api/register', async (req, res) => {
     res.json({ success: true, message: 'Registration successful! You can now log in.' });
 });
 
+// Deep merge utility to ensure structurally sound data
+function mergeDeep(target, source) {
+    if (!source) return target;
+    const output = Object.assign({}, target);
+    for (const key of Object.keys(source)) {
+        if (source[key] instanceof Object && !Array.isArray(source[key])) {
+            if (!(key in target)) Object.assign(output, { [key]: source[key] });
+            else output[key] = mergeDeep(target[key], source[key]);
+        } else {
+            Object.assign(output, { [key]: source[key] });
+        }
+    }
+    return output;
+}
+
 // API: Fetch Public Data (For INDEX.HTML)
 app.get('/api/data', async (req, res) => {
     const userId = req.query.user_id;
@@ -104,6 +119,8 @@ app.get('/api/data', async (req, res) => {
         return res.status(400).json({ success: false, message: 'Missing user_id query parameter.' });
     }
 
+    const defaultData = JSON.parse(fs.readFileSync(path.join(__dirname, 'data.json'), 'utf8'));
+
     const { data, error } = await supabase
         .from('cms_data')
         .select('data')
@@ -111,14 +128,16 @@ app.get('/api/data', async (req, res) => {
         .single();
 
     if (error || !data) {
-        return res.status(404).json({ success: false, message: 'No data found for this user.' });
+        return res.json(defaultData); // Fallback to beautiful default if no data yet
     }
 
-    res.json(data.data);
+    res.json(mergeDeep(defaultData, data.data));
 });
 
 // SECURED API: Fetch Admin Data
 app.get('/api/admin-data', authenticateToken, async (req, res) => {
+    const defaultData = JSON.parse(fs.readFileSync(path.join(__dirname, 'data.json'), 'utf8'));
+
     const { data, error } = await supabase
         .from('cms_data')
         .select('data')
@@ -126,11 +145,10 @@ app.get('/api/admin-data', authenticateToken, async (req, res) => {
         .single();
 
     if (error || !data) {
-        // Return empty so the admin panel doesn't crash on new accounts
-        return res.json({}); 
+        return res.json(defaultData); 
     }
 
-    res.json(data.data);
+    res.json(mergeDeep(defaultData, data.data));
 });
 
 // SECURED API: Get current user ID
