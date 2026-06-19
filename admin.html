@@ -126,6 +126,45 @@
         .media-thumb-card .delete-asset-btn:hover {
             background: #c0392b;
         }
+        .collapsible-header {
+            background: #1c1d1f;
+            color: #fff;
+            padding: 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 25px;
+            margin-bottom: 15px;
+            transition: background 0.2s;
+        }
+        .collapsible-header:hover {
+            background: #2a2b2d;
+        }
+        .collapsible-header h3 {
+            margin: 0;
+            color: #fff;
+            font-size: 1.1rem;
+        }
+        .collapsible-header .chevron {
+            transition: transform 0.3s ease;
+        }
+        .collapsible-header.active .chevron {
+            transform: rotate(180deg);
+        }
+        .collapsible-content {
+            display: none;
+            padding: 5px 10px;
+            animation: slideDown 0.3s ease-out forwards;
+        }
+        .collapsible-content.active {
+            display: block;
+        }
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
     </style>
 </head>
 <body>
@@ -852,6 +891,59 @@
         
         pollSystemVitals();
         setInterval(pollSystemVitals, 5000);
+
+        // --- UI ENHANCEMENTS: Collapsible Sections ---
+        function initCollapsibles() {
+            const form = document.getElementById('cms-form');
+            const headers = Array.from(form.querySelectorAll('h3'));
+            
+            headers.forEach((h3, index) => {
+                const headerWrapper = document.createElement('div');
+                headerWrapper.className = 'collapsible-header' + (index === 0 ? ' active' : '');
+                
+                const newH3 = document.createElement('h3');
+                newH3.textContent = h3.textContent;
+                
+                const chevron = document.createElement('i');
+                chevron.className = 'fa-solid fa-chevron-down chevron';
+                
+                headerWrapper.appendChild(newH3);
+                headerWrapper.appendChild(chevron);
+                
+                const contentWrapper = document.createElement('div');
+                contentWrapper.className = 'collapsible-content' + (index === 0 ? ' active' : '');
+                
+                h3.parentNode.insertBefore(headerWrapper, h3);
+                h3.parentNode.insertBefore(contentWrapper, h3);
+                
+                let currentEl = h3.nextSibling;
+                while (currentEl) {
+                    let nextEl = currentEl.nextSibling;
+                    // Stop if we hit the next h3
+                    if (currentEl.tagName === 'H3') break;
+                    // Stop if we hit the buttons container (contains the save buttons)
+                    if (currentEl.tagName === 'DIV' && currentEl.querySelector && currentEl.querySelector('#save-draft-btn')) break;
+                    
+                    contentWrapper.appendChild(currentEl);
+                    currentEl = nextEl;
+                }
+                
+                h3.remove();
+                
+                headerWrapper.addEventListener('click', () => {
+                    const isActive = headerWrapper.classList.contains('active');
+                    if (!isActive) {
+                        headerWrapper.classList.add('active');
+                        contentWrapper.classList.add('active');
+                    } else {
+                        headerWrapper.classList.remove('active');
+                        contentWrapper.classList.remove('active');
+                    }
+                });
+            });
+        }
+        
+        document.addEventListener('DOMContentLoaded', initCollapsibles);
 
     </script>
 </body>
