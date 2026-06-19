@@ -1,261 +1,4 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexus Admin Panel</title>
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:wght@400;500&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <!-- Quill.js for Rich Text -->
-    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
-    <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
-    
-    <!-- SortableJS for Drag-and-Drop -->
-    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"> </script>
 
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f4f4f9;
-            color: #333;
-            padding: 40px;
-            max-width: 800px;
-            margin: 0 auto;
-        }
-        .admin-card {
-            background: white;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-        }
-        h2 { margin-top: 0; color: #121315; }
-        .form-group { margin-bottom: 20px; }
-        label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 0.9rem; }
-        input[type="text"], input[type="password"], textarea {
-            width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; box-sizing: border-box;
-        }
-        input:invalid, textarea:invalid { border-color: #e74c3c; background-color: #fdf0ed; }
-        .help-text { font-size: 0.75rem; color: #777; margin-top: 5px; display: block; }
-        .btn { background: #121315; color: white; padding: 12px 24px; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; }
-        .btn:hover { background: #333; }
-        .btn-secondary { background: #3498db; margin-top: 10px; padding: 8px 16px; }
-        .btn-secondary:hover { background: #2980b9; }
-        
-        input:focus, textarea:focus { border-color: #d0aa69; outline: none; }
-        
-        .char-counter { font-size: 0.75rem; color: #a0a0a0; text-align: right; display: block; margin-top: 4px; }
-        .char-counter.warning { color: #f39c12; }
-        .char-counter.danger { color: #e74c3c; }
-
-        /* Quill.js Dark Theme Overrides */
-        .ql-container { font-family: var(--font-sans); font-size: 0.9rem; background: #121315; color: #fff; border-color: #333 !important; border-bottom-left-radius: 4px; border-bottom-right-radius: 4px; }
-        .ql-toolbar { background: #1c1d1f; border-color: #333 !important; border-top-left-radius: 4px; border-top-right-radius: 4px; }
-        .ql-snow .ql-stroke { stroke: #a0a0a0; }
-        .ql-snow .ql-fill { fill: #a0a0a0; }
-        .ql-snow .ql-picker { color: #a0a0a0; }
-        .ql-editor { min-height: 100px; }
-
-        .dynamic-item { border: 1px solid #eaeaea; padding: 15px; padding-left: 45px; border-radius: 6px; margin-bottom: 15px; position: relative; background: #fafafa; }
-        .remove-btn { position: absolute; top: 15px; right: 15px; background: #e74c3c; color: white; border: none; padding: 4px 8px; cursor: pointer; border-radius: 4px; font-size: 0.8rem; }
-        .remove-btn:hover { background: #c0392b; }
-        
-        .drag-handle { position: absolute; top: 15px; left: 15px; color: #a0a0a0; cursor: grab; font-size: 1.2rem; }
-        .drag-handle:active { cursor: grabbing; }
-        
-        #toast { visibility: hidden; min-width: 250px; background-color: #333; color: #fff; text-align: center; border-radius: 4px; padding: 16px; position: fixed; z-index: 1000; left: 50%; bottom: 30px; transform: translateX(-50%); font-size: 0.9rem; transition: visibility 0s, opacity 0.5s linear, bottom 0.5s ease-in-out; opacity: 0; }
-        #toast.show { visibility: visible; opacity: 1; bottom: 50px; }
-        #toast.success { background-color: #27ae60; }
-        .toast.error { background: #e74c3c; color: white; border-left: 4px solid #c0392b; }
-
-        .media-gallery-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-            gap: 12px;
-            background: #1c1d1f;
-            border: 1px solid #2a2b2d;
-            padding: 15px;
-            border-radius: 6px;
-            max-height: 220px;
-            overflow-y: auto;
-            margin-top: 10px;
-        }
-        .media-thumb-card {
-            position: relative;
-            aspect-ratio: 16 / 10;
-            border-radius: 4px;
-            overflow: hidden;
-            cursor: pointer;
-            border: 2px solid transparent;
-            transition: all 0.2s ease;
-        }
-        .media-thumb-card img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        .media-thumb-card:hover {
-            transform: scale(1.03);
-            border-color: #d0aa69;
-        }
-        .media-thumb-card.selected {
-            border-color: #2ecc71;
-            box-shadow: 0 0 10px rgba(46, 204, 113, 0.3);
-        }
-        .media-thumb-card .delete-asset-btn {
-            position: absolute;
-            top: 5px;
-            right: 5px;
-            background: rgba(231, 76, 60, 0.9);
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 24px;
-            height: 24px;
-            font-size: 0.7rem;
-            cursor: pointer;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            transition: background 0.2s;
-        }
-        .media-thumb-card:hover .delete-asset-btn {
-            display: flex;
-        }
-        .media-thumb-card .delete-asset-btn:hover {
-            background: #c0392b;
-        }
-    </style>
-</head>
-<body>
-    <div id="toast">Message</div>
-
-    <!-- Main Admin Panel (Hidden until session verified) -->
-    <div class="admin-card" id="main-admin" style="display:none;">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <h2>Website Content Generator</h2>
-            <div>
-                <a id="live-site-link" href="#" target="_blank" class="btn btn-secondary" style="background:#27ae60; margin-top:0; text-decoration: none; display: inline-block; margin-right: 10px;">View Live Site</a>
-                <button class="btn btn-secondary" id="logout-btn" style="background:#e74c3c; margin-top:0;">Logout</button>
-            </div>
-        </div>
-        <p style="margin-bottom: 30px; font-size: 0.9rem; color: #555;">Update your site's text, images, and services. Changes save directly to your server.</p>
-
-        <!-- Live System Vitals HUD -->
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 30px;">
-            <div style="background:#1c1d1f; border:1px solid #2a2b2d; padding:15px; border-radius:6px; text-align:center;">
-                <div style="color:#555; font-size:0.7rem; text-transform:uppercase;">Host Memory Allocations</div>
-                <div id="health-mem" style="font-size:1.6rem; color:#2ecc71; font-weight:500; margin-top:5px;">0.0%</div>
-            </div>
-            <div style="background:#1c1d1f; border:1px solid #2a2b2d; padding:15px; border-radius:6px; text-align:center;">
-                <div style="color:#555; font-size:0.7rem; text-transform:uppercase;">Host CPU Compute Load</div>
-                <div id="health-cpu" style="font-size:1.6rem; color:#d0aa69; font-weight:500; margin-top:5px;">0.00</div>
-            </div>
-            <div style="background:#1c1d1f; border:1px solid #2a2b2d; padding:15px; border-radius:6px; text-align:center;">
-                <div style="color:#555; font-size:0.7rem; text-transform:uppercase;">Platform Server Uptime</div>
-                <div id="health-uptime" style="font-size:1.6rem; color:#fff; font-weight:500; margin-top:5px;">0.00 Hrs</div>
-            </div>
-        </div>
-
-        <form id="cms-form">
-            <h3>1. Brand & Notification Settings</h3>
-            <div class="form-group">
-                <label>Brand Name</label>
-                <input type="text" id="brandName" required maxlength="30">
-            </div>
-            <div class="form-group">
-                <label>Notification Email (For Leads)</label>
-                <input type="email" id="adminEmail" placeholder="Where should we send your leads?" style="width: 100%; padding: 12px; background: #121315; border: 1px solid #333; border-radius: 4px; color: #fff; box-sizing: border-box;">
-            </div>
-            
-            <div class="form-group" style="background: rgba(208, 170, 105, 0.1); padding: 15px; border-radius: 6px; border: 1px solid rgba(208, 170, 105, 0.3); margin-top: 20px;">
-                <label style="color: #d0aa69;">Public Form Key (For External Sites)</label>
-                <p style="font-size: 0.8rem; color: #aaa; margin: 0 0 10px 0;">Use this key to securely submit forms to your endpoint from other websites. Do NOT expose your true User ID.</p>
-                <div style="display: flex; gap: 10px;">
-                    <input type="text" id="formKey" readonly style="width: 100%; padding: 12px; background: #121315; border: 1px solid #333; border-radius: 4px; color: #d0aa69; box-sizing: border-box; font-family: monospace;">
-                    <button type="button" class="btn" style="width: auto; padding: 0 20px;" onclick="navigator.clipboard.writeText('https://your-api.com/api/submit-form/[form_id]?key=' + document.getElementById('formKey').value); alert('Endpoint Snippet Copied!');">Copy URL</button>
-                </div>
-            </div>
-
-            <!-- 2. Hero Section -->
-            <h3>2. Hero Section</h3>
-            <div class="form-group">
-                <label>Tagline</label>
-                <input type="text" id="heroTagline" required maxlength="50">
-            </div>
-            <div class="form-group">
-                <label>Headline</label>
-                <input type="text" id="heroHeadline" required maxlength="100">
-            </div>
-            <div class="header-actions">
-                <select id="lang-select" style="padding: 5px; border-radius: 4px; background: #333; color: white; border: 1px solid #555;">
-                    <option value="en">English</option>
-                    <option value="es">Español</option>
-                </select>
-                <a href="#" class="btn btn-outline" id="live-site-link" target="_blank">Live Site</a>
-                <div class="menu-btn"><i class="fa-solid fa-ellipsis"></i></div>
-            </div>
-            <div class="form-group">
-                <label>Hero Subtext</label>
-                <div id="heroSubtextEditor" style="height: 120px;"></div>
-            </div>
-            
-            <!-- Handle Image Uploads -->
-            <div class="form-group">
-                <label>Hero Background Image</label>
-                <input type="file" id="heroBgFile" accept="image/*">
-                <span class="help-text" id="heroBgStatus">Upload a new graphic asset, or pick one from your cloud library below:</span>
-                <input type="hidden" id="heroBgUrl">
-                <div class="media-gallery-grid" id="system-media-vault"></div>
-            </div>
-
-            <!-- Handle Dynamic Arrays -->
-            <h3>3. Services (Dynamic Array)</h3>
-            <div id="services-container"></div>
-            <button type="button" class="btn btn-secondary" id="add-service-btn">+ Add Service</button>
-            <br><br>
-
-            <h3>4. Stats Bar</h3>
-            <div id="stats-container"></div>
-            <button type="button" class="btn btn-secondary" id="add-stat-btn">+ Add Stat</button>
-            <br><br>
-
-            <h3>5. Projects / Case Studies</h3>
-            <div id="projects-container"></div>
-            <button type="button" class="btn btn-secondary" id="add-project-btn">+ Add Project</button>
-            <br><br><hr style="border: 0; border-top: 1px solid #ddd; margin: 30px 0;">
-
-            <h3>6. Dynamic Forms Builder</h3>
-            <div id="forms-container"></div>
-            <button type="button" class="btn btn-secondary" id="add-form-btn">+ Create New Form</button>
-            <br><br><hr style="border: 0; border-top: 1px solid #ddd; margin: 30px 0;">
-
-            <h3>📥 Lead Responses Inbox</h3>
-            <div class="form-group">
-                <label>Select Form to View Responses</label>
-                <select id="inbox-select" style="padding: 10px; width: 100%; background: #1c1d1f; color: white; border: 1px solid #333;">
-                    <option value="">-- No Forms Available --</option>
-                </select>
-            </div>
-            <button type="button" class="btn btn-secondary" id="export-csv-btn" style="display: none; margin-bottom: 15px;"><i class="fa-solid fa-file-csv"></i> Download CSV</button>
-            <div id="inbox-container" style="overflow-x: auto;">
-                <p style="color: #777;">Select a form to view its leads.</p>
-            </div>
-            <br><br><hr style="border: 0; border-top: 1px solid #ddd; margin: 30px 0;">
-            
-            <!-- Handle Image Uploads -->
-            <div style="display: flex; gap: 15px; margin-top: 40px;">
-                <button type="button" id="save-draft-btn" class="btn btn-secondary" style="flex: 1;">Save Draft</button>
-                <button type="button" id="publish-live-btn" class="btn" style="flex: 1; background: #27ae60; border-color: #27ae60;">Publish Live</button>
-            </div>
-            <div style="margin-top: 15px; font-size: 0.8rem; color: #666; text-align: center; font-style: italic;" id="autosave-status">
-                System idle. Draft changes are monitored automatically.
-            </div>
-        </form>
-    </div>
-
-    <script>
         // --- SECURE VERIFICATION ---
         let heroQuill; // Global reference for Quill
         let fullMatrix = null;
@@ -328,16 +71,6 @@
             existingData = data;
             
             document.getElementById('brandName').value = data.brand.name || '';
-            if (document.getElementById('adminEmail')) document.getElementById('adminEmail').value = data.brand.adminEmail || '';
-            
-            // Generate Form Key if missing
-            let key = data.brand.formKey;
-            if (!key) {
-                key = 'key_' + Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
-                data.brand.formKey = key; // ensure it is part of the state
-            }
-            if (document.getElementById('formKey')) document.getElementById('formKey').value = key;
-
             document.getElementById('heroTagline').value = data.hero.tagline || '';
             document.getElementById('heroHeadline').value = data.hero.headline || '';
             heroQuill.root.innerHTML = data.hero.subtext || '';
@@ -732,9 +465,7 @@
                 ...existingData,
                 brand: {
                     ...existingData.brand,
-                    name: document.getElementById('brandName').value,
-                    adminEmail: document.getElementById('adminEmail') ? document.getElementById('adminEmail').value : '',
-                    formKey: document.getElementById('formKey') ? document.getElementById('formKey').value : existingData.brand.formKey
+                    name: document.getElementById('brandName').value
                 },
                 hero: {
                     ...existingData.hero,
@@ -779,6 +510,7 @@
             .catch(error => {
                 console.error('Error saving data:', error);
                 showToast('Failed to connect to the server.', 'error');
+            });
             });
         }
 
@@ -853,6 +585,4 @@
         pollSystemVitals();
         setInterval(pollSystemVitals, 5000);
 
-    </script>
-</body>
-</html>
+    

@@ -1,0 +1,15 @@
+Edited implementation_plan.md
+
+I love that idea. That is exactly what professional systems do!
+
+I've updated our **[Implementation Plan](file:///C:/Users/LIZBETH/.gemini/antigravity-ide/brain/73aeeab3-4ef2-4e55-9aed-4aaf12543fd8/implementation_plan.md)** with a brand new section called **"Dual-Dispatch Email Engine"**.
+
+Here is exactly how the message flow will work once we build it:
+
+1. The user hits "Submit" on the registration form.
+2. The Node backend scans their submission specifically looking for their email address.
+3. The server then fires **two emails simultaneously**:
+   - **Email 1 (The Admin Alert):** Sent to _you_. It contains the beautiful data table with their registration details. I will set the `Reply-To` header to the _customer's email_. This means you are instantly notified, and if you click "Reply", you are emailing the customer.
+   - **Email 2 (The Auto-Responder):** Sent to _the customer_. It contains a "Thank you for registering" message and shares important details like the venue, results, or reminders. I will set the `Reply-To` header to _your email_. This means they get instant gratification, and if they have a question and click "Reply", it goes straight to your inbox!
+
+Please review the **[Implementation Plan](file:///C:/Users/LIZBETH/.gemini/antigravity-ide/brain/73aeeab3-4ef2-4e55-9aed-4aaf12543fd8/implementation_plan.md)**! I left one important "Open Question" for you regarding what text we should use for the Auto-Responder. If you approve of the plan and the hardcoded text, we can build this right now!
