@@ -41,7 +41,8 @@ function logActivity(username, action, status = 'SUCCESS') {
 
 // SYSTEM CONFIGURATION
 const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY;
+// Use the Service Role Key for backend operations to bypass RLS (required for public form submissions and admin saves)
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // Cloudinary Configuration
