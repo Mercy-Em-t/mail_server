@@ -665,40 +665,14 @@
         </div>
     </section>
 
-    <section class="container split-section">
-        <div class="split-left" id="process-left"></div>
-        <div class="split-right">
-            <div class="process-row" id="process-row"></div>
-        </div>
-    </section>
 
-    <section class="insights-section">
-        <div class="container split-section">
-            <div class="split-left" id="insights-left"></div>
-            <div class="split-right">
-                <div class="insights-grid" id="insights-grid"></div>
-            </div>
-        </div>
-    </section>
 
     <!-- Dynamic Forms Inbound Engine -->
     <section class="container" style="padding-bottom: 100px;">
         <div id="dynamic-forms-container" style="max-width: 600px; margin: 0 auto;"></div>
     </section>
 
-    <footer>
-        <div class="container">
-            <div class="footer-top">
-                <div class="footer-cta" id="footer-cta"></div>
-                <div class="footer-contact" id="footer-contact"></div>
-                <div class="footer-brand" id="footer-brand"></div>
-            </div>
-            <div class="footer-bottom">
-                <p id="footer-copyright"></p>
-                <div class="footer-links" id="footer-links"></div>
-            </div>
-        </div>
-    </footer>
+
 
     <script>
         // Fetch the external JSON file or Supabase data
@@ -826,51 +800,7 @@
                     });
                 }
     
-                // Process
-                const processLeft = document.getElementById('process-left');
-                if (processLeft) {
-                    processLeft.innerHTML = `
-                        <span class="section-tag">${data.processSection.tag}</span>
-                        <h2>${data.processSection.title}</h2>
-                        <a href="#" class="btn btn-light" style="margin-top: 1rem;">${data.processSection.buttonText}</a>
-                    `;
-                }
-    
-                const processRow = document.getElementById('process-row');
-                if (processRow) {
-                    data.processSection.items.forEach(item => {
-                        const highlightStyle = item.highlight ? 'style="background-color: var(--accent);"' : '';
-                        processRow.innerHTML += `
-                            <div class="process-step">
-                                <div class="step-number" ${highlightStyle}>${item.number}</div>
-                                <h4>${item.title}</h4>
-                                <p>${item.desc}</p>
-                            </div>
-                        `;
-                    });
-                }
-    
-                // Insights
-                const insightsLeft = document.getElementById('insights-left');
-                if (insightsLeft && data.insightsSection) {
-                    insightsLeft.innerHTML = `
-                        <span class="section-tag">${data.insightsSection.tag}</span>
-                        <h2>${data.insightsSection.title}</h2>
-                        <a href="#" class="btn btn-outline" style="margin-top: 1rem;">${data.insightsSection.buttonText}</a>
-                    `;
-                }
-    
-                const insightsGrid = document.getElementById('insights-grid');
-                if (insightsGrid && data.insightsSection) {
-                    data.insightsSection.items.forEach(item => {
-                        insightsGrid.innerHTML += `
-                            <div class="insight-card">
-                                <div><span class="insight-category">${item.category}</span><span class="insight-date">${item.date}</span></div>
-                                <h4>${item.title}</h4>
-                            </div>
-                        `;
-                    });
-                }
+
                 
                 // Dynamic Forms Renderer
                 const formsContainer = document.getElementById('dynamic-forms-container');
@@ -916,59 +846,7 @@
                     });
                 }
     
-                // Footer
-                const footerCta = document.getElementById('footer-cta');
-                if (footerCta) {
-                    footerCta.innerHTML = `
-                        <h2>${data.footer.ctaTitle}</h2>
-                        <a href="#" class="btn btn-solid">${data.footer.ctaButton}</a>
-                    `;
-                }
-    
-                const footerContact = document.getElementById('footer-contact');
-                if (footerContact) {
-                    let contactHtml = '<ul>';
-                    data.footer.contact.forEach(item => {
-                        contactHtml += `<li><i class="${item.icon}"></i> ${item.text}</li>`;
-                    });
-                    contactHtml += '</ul><p style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 15px; color: var(--text-light);">Follow Us</p><div class="social-links">';
-                    data.footer.social.forEach(item => {
-                        contactHtml += `<a href="${item.link}"><i class="${item.icon}"></i></a>`;
-                    });
-                    contactHtml += '</div>';
-                    footerContact.innerHTML = contactHtml;
-                }
-    
-                const footerBrand = document.getElementById('footer-brand');
-                if (footerBrand) {
-                    footerBrand.innerHTML = `
-                        <div class="logo logo-container"></div>
-                        <p>${data.footer.brandText}</p>
-                    `;
-                    // Re-inject logo for footer
-                    const footerLogo = footerBrand.querySelector('.logo-container');
-                    if (footerLogo) {
-                        footerLogo.innerHTML = `
-                            <span class="logo-icon">${data.brand.icon}</span>
-                            <div>
-                                <span class="logo-text">${data.brand.name}</span>
-                                <span class="logo-sub">${data.brand.sub}</span>
-                            </div>
-                        `;
-                    }
-                }
-    
-                const footerCopyright = document.getElementById('footer-copyright');
-                if (footerCopyright) {
-                    footerCopyright.innerHTML = data.footer.copyright;
-                }
-    
-                const footerLinks = document.getElementById('footer-links');
-                if (footerLinks) {
-                    data.footer.links.forEach(link => {
-                        footerLinks.innerHTML += `<a href="#">${link}</a>\n`;
-                    });
-                }
+
         }
 
         const serverPayloadElement = document.getElementById('server-payload');
