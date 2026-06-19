@@ -86,7 +86,7 @@ app.use(cookieParser());
 const renderStorefront = async (req, res) => {
     try {
         const userId = req.query.user_id;
-        const htmlPath = path.join(__dirname, 'INDEX.HTML');
+        const htmlPath = path.join(__dirname, 'index.html');
         let htmlTemplate = fs.readFileSync(htmlPath, 'utf8');
 
         if(userId) {
@@ -101,13 +101,13 @@ const renderStorefront = async (req, res) => {
         res.send(htmlTemplate);
     } catch(err) {
         console.error('SSR Error:', err);
-        res.sendFile(path.join(__dirname, 'INDEX.HTML'));
+        res.sendFile(path.join(__dirname, 'index.html'));
     }
 };
 
 app.get('/', renderStorefront);
 app.get('/index.html', renderStorefront);
-app.get('/INDEX.HTML', renderStorefront);
+app.get('/index.html', renderStorefront);
 
 app.use(express.static(__dirname)); // Serve all other HTML files (admin, login, etc.)
 
@@ -210,7 +210,7 @@ function migrateData(data) {
     return data;
 }
 
-// API: Fetch Public Data (For INDEX.HTML)
+// API: Fetch Public Data (For index.html)
 app.get('/api/data', async (req, res) => {
     const userId = req.query.user_id;
     const lang = req.query.lang || 'en';

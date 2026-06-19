@@ -347,7 +347,7 @@
                         .then(res => res.json())
                         .then(userData => {
                             if(userData.user_id) {
-                                document.getElementById('live-site-link').href = `/INDEX.HTML?user_id=${userData.user_id}`;
+                                document.getElementById('live-site-link').href = `/index.html?user_id=${userData.user_id}`;
                             }
                         });
                 }
