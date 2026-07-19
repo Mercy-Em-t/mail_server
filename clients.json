@@ -1,0 +1,20 @@
+{
+    "clients":  [
+                    {
+                        "client_id":  "test_client",
+                        "client_name":  "Test Client",
+                        "domain":  "test.tmsavannah.com",
+                        "secret":  "3hMYK42xux6BkWImm3B9ujxjiwUvZrwDeac5MjOgp8zatvEmpXfTIXyToUcTA0ED",
+                        "allowed_message_types":  [
+                                                      "transactional",
+                                                      "notification",
+                                                      "marketing",
+                                                      "internal",
+                                                      "auto_reply"
+                                                  ],
+                        "daily_quota":  500,
+                        "active":  true,
+                        "created_at":  "2026-07-19T19:02:20.0297196+03:00"
+                    }
+                ]
+}

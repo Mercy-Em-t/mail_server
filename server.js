@@ -12,6 +12,7 @@ const cookieParser = require('cookie-parser');
 const xss = require('xss');
 const { z } = require('zod');
 const rateLimit = require('express-rate-limit');
+const crypto = require('crypto');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -129,9 +130,9 @@ async function authenticateToken(req, res, next) {
     next();
 }
 
-// API: Handle User Login via Supabase
+// API: Step 1 - Handle User Login via Supabase & Send OTP
 app.post('/api/login', async (req, res) => {
-    const { username, password } = req.body; // Using username field as email for Supabase
+    const { username, password } = req.body; 
 
     const { data, error } = await supabase.auth.signInWithPassword({
         email: username, 
@@ -139,21 +140,374 @@ app.post('/api/login', async (req, res) => {
     });
 
     if (error) {
-        return res.status(400).json({ success: false, message: error.message });
+        logActivity(username, 'USER_LOGIN', 'FAILED_CREDENTIALS');
+        return res.status(400).json({ success: false, message: 'Invalid credentials.' });
     }
 
-    // Send Supabase access token as a cookie securely to browser
-    const isSecure = req.secure || req.headers['x-forwarded-proto'] === 'https';
-    res.cookie('auth_token', data.session.access_token, {
-        httpOnly: true,
-        secure: isSecure, // Required for HTTPS on Render, false for local HTTP
-        sameSite: 'lax', // Recommended for same-origin session cookies
-        maxAge: 2 * 60 * 60 * 1000 // 2 hours
-    });
+    // STATELESS OTP GENERATION
+    const otp = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit OTP
+    const key = crypto.scryptSync(otp, 'nexus_salt_2026', 32);
+    
+    const iv = crypto.randomBytes(16);
+    const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+    
+    let encryptedToken = cipher.update(data.session.access_token, 'utf8', 'hex');
+    encryptedToken += cipher.final('hex');
+    const authTag = cipher.getAuthTag().toString('hex');
 
-    logActivity(data.user.id, 'USER_LOGIN', 'SUCCESS');
+    // Send OTP via Email
+    try {
+        await emailTransporter.sendMail({
+            from: `"Mail Server Security" <${process.env.SMTP_USER}>`,
+            to: username,
+            subject: 'Your Dashboard Login OTP',
+            html: `<div style="font-family: sans-serif; text-align: center; padding: 20px;">
+                    <h2>Secure Login Verification</h2>
+                    <p>Your One-Time Password is:</p>
+                    <h1 style="color: #d0aa69; font-size: 36px; letter-spacing: 5px;">${otp}</h1>
+                    <p>This code will expire shortly. Do not share it with anyone.</p>
+                   </div>`
+        });
+        logActivity(data.user.id, 'OTP_SENT', 'SUCCESS');
+        
+        // Return the encrypted token package (NO cookie yet)
+        res.json({ 
+            success: true, 
+            message: 'OTP sent to your email.', 
+            verificationPackage: {
+                encryptedToken,
+                iv: iv.toString('hex'),
+                authTag
+            }
+        });
+    } catch (err) {
+        console.error('Failed to send OTP email:', err);
+        logActivity(data.user.id, 'OTP_EMAIL_FAILED', 'ERROR');
+        return res.status(500).json({ success: false, message: 'Failed to send OTP email.' });
+    }
+});
 
-    res.json({ success: true, message: 'Authentication successful.', user_id: data.user.id });
+// API: Step 2 - Verify OTP and Issue Session
+app.post('/api/verify-otp', (req, res) => {
+    const { otp, verificationPackage } = req.body;
+
+    if (!otp || !verificationPackage) {
+        return res.status(400).json({ success: false, message: 'Missing OTP or verification package.' });
+    }
+
+    const { encryptedToken, iv, authTag } = verificationPackage;
+
+    try {
+        const key = crypto.scryptSync(otp, 'nexus_salt_2026', 32);
+        const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(iv, 'hex'));
+        decipher.setAuthTag(Buffer.from(authTag, 'hex'));
+        
+        let token = decipher.update(encryptedToken, 'hex', 'utf8');
+        token += decipher.final('utf8');
+
+        // OTP Validated! Set the cookie.
+        const isSecure = req.secure || req.headers['x-forwarded-proto'] === 'https';
+        res.cookie('auth_token', token, {
+            httpOnly: true,
+            secure: isSecure, 
+            sameSite: 'lax', 
+            maxAge: 2 * 60 * 60 * 1000 // 2 hours
+        });
+
+        logActivity('verified_user', 'USER_LOGIN_2FA', 'SUCCESS');
+        res.json({ success: true, message: 'Authentication successful.' });
+
+    } catch (err) {
+        logActivity('unknown', 'USER_LOGIN_2FA', 'FAILED_INVALID_OTP');
+        return res.status(401).json({ success: false, message: 'Invalid or expired OTP.' });
+    }
+});
+
+// ─────────────────────────────────────────────────────────────
+// MULTI-CLIENT REGISTRY HELPERS
+// ─────────────────────────────────────────────────────────────
+const jwt = require('jsonwebtoken');
+const CLIENTS_FILE = path.join(__dirname, 'clients.json');
+const TEMPLATES_FILE = path.join(__dirname, 'templates.json');
+
+function loadClients() {
+    try {
+        const raw = fs.readFileSync(CLIENTS_FILE, 'utf8');
+        return JSON.parse(raw).clients || [];
+    } catch { return []; }
+}
+
+function saveClients(clients) {
+    fs.writeFileSync(CLIENTS_FILE, JSON.stringify({ clients }, null, 2), 'utf8');
+}
+
+function loadTemplates() {
+    try {
+        const raw = fs.readFileSync(TEMPLATES_FILE, 'utf8');
+        return JSON.parse(raw) || {};
+    } catch { return {}; }
+}
+
+function saveTemplates(templates) {
+    fs.writeFileSync(TEMPLATES_FILE, JSON.stringify(templates, null, 2), 'utf8');
+}
+
+// Inject variables into a template string using {{variable}} syntax
+function renderTemplate(str, vars = {}) {
+    return str.replace(/\{\{(\w+)\}\}/g, (_, key) => vars[key] !== undefined ? vars[key] : `{{${key}}}`);
+}
+
+// ─────────────────────────────────────────────────────────────
+// EXPRESS HIGHWAY — PER-CLIENT JWT MIDDLEWARE
+// ─────────────────────────────────────────────────────────────
+function verifyHighwayToken(req, res, next) {
+    const token = req.headers['x-highway-token'];
+    if (!token) return res.status(401).json({ success: false, message: 'Missing x-highway-token header.' });
+
+    // Decode payload without verifying to extract client_id
+    const unverified = jwt.decode(token);
+    if (!unverified || !unverified.client_id) {
+        return res.status(401).json({ success: false, message: 'Token must include client_id in payload.' });
+    }
+
+    const clients = loadClients();
+    const client = clients.find(c => c.client_id === unverified.client_id);
+
+    if (!client) {
+        logActivity(unverified.client_id, 'HIGHWAY_ACCESS', 'FAILED_UNKNOWN_CLIENT');
+        return res.status(403).json({ success: false, message: 'Unknown client_id.' });
+    }
+    if (!client.active) {
+        logActivity(client.client_id, 'HIGHWAY_ACCESS', 'FAILED_DEACTIVATED');
+        return res.status(403).json({ success: false, message: 'Client account has been deactivated.' });
+    }
+
+    try {
+        jwt.verify(token, client.secret);
+        req.highwayClient = client;
+        next();
+    } catch (err) {
+        logActivity(client.client_id, 'HIGHWAY_ACCESS', 'FAILED_INVALID_TOKEN');
+        return res.status(403).json({ success: false, message: 'Invalid or expired token.' });
+    }
+}
+
+// ─────────────────────────────────────────────────────────────
+// EXPRESS HIGHWAY API: /api/dispatch (Hybrid — template or raw)
+// ─────────────────────────────────────────────────────────────
+app.post('/api/dispatch', verifyHighwayToken, async (req, res) => {
+    const { to, from, cc, replyTo, subject, html, text, isNoReply, template, variables, message_type } = req.body;
+    const client = req.highwayClient;
+
+    // Enforce message type permissions if client has restrictions
+    if (message_type && client.allowed_message_types && client.allowed_message_types.length > 0) {
+        if (!client.allowed_message_types.includes(message_type)) {
+            return res.status(403).json({ success: false, message: `Client '${client.client_id}' is not authorized for message type: '${message_type}'.` });
+        }
+    }
+
+    let finalSubject = subject;
+    let finalHtml = html;
+    let finalText = text;
+
+    // ── Template resolution path ──
+    if (template) {
+        const templates = loadTemplates();
+        const tmpl = templates[template];
+        if (!tmpl) {
+            return res.status(404).json({ success: false, message: `Template '${template}' not found. Use GET /api/templates to see available templates.` });
+        }
+        const vars = variables || {};
+        finalSubject = renderTemplate(tmpl.subject, vars);
+        finalHtml = renderTemplate(tmpl.html, vars);
+    }
+
+    if (!to || !finalSubject) {
+        return res.status(400).json({ success: false, message: 'Missing required fields: to, and either subject+html or template.' });
+    }
+
+    let finalFrom = from;
+    if (isNoReply) {
+        finalFrom = `"No Reply" <noreply@tmsavannah.com>`;
+    } else if (!from) {
+        finalFrom = process.env.SMTP_USER;
+    }
+
+    const mailOptions = { from: finalFrom, to, cc, replyTo, subject: finalSubject, html: finalHtml, text: finalText };
+
+    try {
+        await emailTransporter.sendMail(mailOptions);
+        logActivity(`HIGHWAY_[${client.client_id}]`, `DISPATCHED_TO_${to}`, 'SUCCESS');
+
+        // Async audit log — does not block response
+        supabase.from('audit_logs').insert([{
+            client: client.client_id,
+            recipient: to,
+            subject: finalSubject,
+            template: template || null,
+            message_type: message_type || (template ? loadTemplates()[template]?.message_type : null),
+            timestamp: new Date().toISOString()
+        }]).then(({ error }) => {
+            if (error) console.error('Failed to write audit log to Supabase:', error);
+        });
+
+        res.json({ success: true, message: 'Message dispatched successfully.', template: template || null });
+    } catch (err) {
+        console.error('Express Highway Dispatch Error:', err);
+        logActivity(`HIGHWAY_[${client.client_id}]`, `DISPATCH_FAILED_${to}`, 'ERROR');
+        res.status(500).json({ success: false, message: 'Failed to dispatch message.' });
+    }
+});
+
+// ─────────────────────────────────────────────────────────────
+// CLIENT MANAGEMENT API (Admin-only)
+// ─────────────────────────────────────────────────────────────
+
+// List all clients
+app.get('/api/clients', authenticateToken, (req, res) => {
+    const clients = loadClients().map(c => ({
+        ...c,
+        secret: c.secret.substring(0, 6) + '...' // mask secret in list view
+    }));
+    res.json({ success: true, clients });
+});
+
+// Register a new client
+app.post('/api/clients/register', authenticateToken, (req, res) => {
+    const { client_name, domain, allowed_message_types, daily_quota } = req.body;
+    if (!client_name || !domain) {
+        return res.status(400).json({ success: false, message: 'client_name and domain are required.' });
+    }
+
+    const clients = loadClients();
+    const client_id = client_name.toLowerCase().replace(/[^a-z0-9]/g, '_');
+
+    if (clients.find(c => c.client_id === client_id)) {
+        return res.status(409).json({ success: false, message: `Client '${client_id}' already exists.` });
+    }
+
+    const secret = crypto.randomBytes(48).toString('base64');
+    const newClient = {
+        client_id,
+        client_name,
+        domain,
+        secret,
+        allowed_message_types: allowed_message_types || ['transactional', 'notification', 'marketing', 'internal', 'auto_reply'],
+        daily_quota: daily_quota || 500,
+        active: true,
+        created_at: new Date().toISOString()
+    };
+
+    clients.push(newClient);
+    saveClients(clients);
+    logActivity('admin', `CLIENT_REGISTERED_${client_id}`, 'SUCCESS');
+
+    res.json({ success: true, message: `Client '${client_name}' registered.`, client_id, secret });
+});
+
+// Rotate a client's secret
+app.post('/api/clients/:id/rotate-secret', authenticateToken, (req, res) => {
+    const clients = loadClients();
+    const idx = clients.findIndex(c => c.client_id === req.params.id);
+    if (idx === -1) return res.status(404).json({ success: false, message: 'Client not found.' });
+
+    const newSecret = crypto.randomBytes(48).toString('base64');
+    clients[idx].secret = newSecret;
+    saveClients(clients);
+    logActivity('admin', `CLIENT_SECRET_ROTATED_${req.params.id}`, 'SUCCESS');
+
+    res.json({ success: true, message: 'Secret rotated. Update the client site immediately.', client_id: req.params.id, secret: newSecret });
+});
+
+// Deactivate a client
+app.post('/api/clients/:id/deactivate', authenticateToken, (req, res) => {
+    const clients = loadClients();
+    const idx = clients.findIndex(c => c.client_id === req.params.id);
+    if (idx === -1) return res.status(404).json({ success: false, message: 'Client not found.' });
+
+    clients[idx].active = false;
+    saveClients(clients);
+    logActivity('admin', `CLIENT_DEACTIVATED_${req.params.id}`, 'SUCCESS');
+
+    res.json({ success: true, message: `Client '${req.params.id}' deactivated.` });
+});
+
+// Reactivate a client
+app.post('/api/clients/:id/activate', authenticateToken, (req, res) => {
+    const clients = loadClients();
+    const idx = clients.findIndex(c => c.client_id === req.params.id);
+    if (idx === -1) return res.status(404).json({ success: false, message: 'Client not found.' });
+
+    clients[idx].active = true;
+    saveClients(clients);
+    logActivity('admin', `CLIENT_ACTIVATED_${req.params.id}`, 'SUCCESS');
+
+    res.json({ success: true, message: `Client '${req.params.id}' reactivated.` });
+});
+
+// ─────────────────────────────────────────────────────────────
+// TEMPLATE MANAGEMENT API (Admin-only)
+// ─────────────────────────────────────────────────────────────
+
+// List all templates
+app.get('/api/templates', authenticateToken, (req, res) => {
+    const templates = loadTemplates();
+    res.json({ success: true, templates });
+});
+
+// Create or update a template
+app.post('/api/templates', authenticateToken, (req, res) => {
+    const { id, name, message_type, subject, html, variables } = req.body;
+    if (!id || !name || !message_type || !subject || !html) {
+        return res.status(400).json({ success: false, message: 'id, name, message_type, subject, and html are required.' });
+    }
+
+    const validTypes = ['transactional', 'notification', 'marketing', 'internal', 'auto_reply'];
+    if (!validTypes.includes(message_type)) {
+        return res.status(400).json({ success: false, message: `Invalid message_type. Must be one of: ${validTypes.join(', ')}` });
+    }
+
+    const templates = loadTemplates();
+    templates[id] = { id, name, message_type, subject, html, variables: variables || [], created_by: 'admin', created_at: new Date().toISOString() };
+    saveTemplates(templates);
+    logActivity('admin', `TEMPLATE_SAVED_${id}`, 'SUCCESS');
+
+    res.json({ success: true, message: `Template '${id}' saved.` });
+});
+
+// Delete a template
+app.delete('/api/templates/:id', authenticateToken, (req, res) => {
+    const templates = loadTemplates();
+    if (!templates[req.params.id]) return res.status(404).json({ success: false, message: 'Template not found.' });
+
+    delete templates[req.params.id];
+    saveTemplates(templates);
+    logActivity('admin', `TEMPLATE_DELETED_${req.params.id}`, 'SUCCESS');
+
+    res.json({ success: true, message: `Template '${req.params.id}' deleted.` });
+});
+
+// Test a template (sends a preview email to admin)
+app.post('/api/templates/:id/test', authenticateToken, async (req, res) => {
+    const templates = loadTemplates();
+    const tmpl = templates[req.params.id];
+    if (!tmpl) return res.status(404).json({ success: false, message: 'Template not found.' });
+
+    const vars = req.body.variables || {};
+    const renderedSubject = renderTemplate(tmpl.subject, vars);
+    const renderedHtml = renderTemplate(tmpl.html, vars);
+
+    try {
+        await emailTransporter.sendMail({
+            from: process.env.SMTP_USER,
+            to: process.env.SMTP_USER,
+            subject: `[TEMPLATE TEST] ${renderedSubject}`,
+            html: renderedHtml
+        });
+        res.json({ success: true, message: `Test email for '${req.params.id}' sent to ${process.env.SMTP_USER}.` });
+    } catch (err) {
+        res.status(500).json({ success: false, message: 'Failed to send test email: ' + err.message });
+    }
 });
 
 // API: Handle User Registration (New route for multi-user)
@@ -201,10 +555,14 @@ function migrateData(data) {
         if(data.draft && data.draft[lang]) {
             if(!data.draft[lang].forms) data.draft[lang].forms = [];
             if(!data.draft[lang].responses) data.draft[lang].responses = {};
+            if(!data.draft[lang].memos) data.draft[lang].memos = [];
+            if(!data.draft[lang].communications_log) data.draft[lang].communications_log = [];
         }
         if(data.published && data.published[lang]) {
             if(!data.published[lang].forms) data.published[lang].forms = [];
             if(!data.published[lang].responses) data.published[lang].responses = {};
+            if(!data.published[lang].memos) data.published[lang].memos = [];
+            if(!data.published[lang].communications_log) data.published[lang].communications_log = [];
         }
     });
     return data;
@@ -305,7 +663,9 @@ const cmsSchema = z.object({
     stats: z.array(z.any()),
     nav: z.array(z.any()),
     forms: z.array(z.any()).optional(),
-    responses: z.any().optional()
+    responses: z.any().optional(),
+    memos: z.array(z.any()).optional(),
+    communications_log: z.array(z.any()).optional()
 });
 
 // SECURED API: Save data
@@ -540,8 +900,82 @@ app.post('/api/submit-form/:formId', formSubmitLimiter, async (req, res) => {
     }
 });
 
-// SECURED API: Live System Vitals Monitor
-app.get('/api/system/health', authenticateToken, (req, res) => {
+// SECURED API: Create and Stamp Memos
+app.post('/api/memos/stamp', authenticateToken, async (req, res) => {
+    const { id, content, author, lang = 'en' } = req.body;
+    if (!id || !content) return res.status(400).json({ success: false, message: 'Missing memo data.' });
+
+    const secret = process.env.MEMO_SIGNING_SECRET || 'default_secret';
+    const timestamp = new Date().toISOString();
+    const dataToSign = `${id}:${content}:${author}:${timestamp}`;
+    const signature = crypto.createHmac('sha256', secret).update(dataToSign).digest('hex');
+
+    // Fetch and update matrix
+    const { data: existingData } = await supabase.from('cms_data').select('data').eq('user_id', req.user.id).single();
+    if (!existingData) return res.status(404).json({ success: false, message: 'Matrix not found.' });
+
+    let matrix = migrateData(existingData.data);
+    const newMemo = { id, content, author, timestamp, signature, status: 'STAMPED' };
+    matrix.draft[lang].memos.push(newMemo);
+    matrix.published[lang].memos.push(newMemo);
+
+    const { error } = await supabase.from('cms_data').upsert({ user_id: req.user.id, data: matrix }, { onConflict: 'user_id' });
+    if (error) return res.status(500).json({ success: false, message: 'Database error' });
+
+    logActivity(req.user.id, `MEMO_STAMPED_${id}`, 'SUCCESS');
+    res.json({ success: true, message: 'Memo stamped cryptographically.', memo: newMemo });
+});
+
+// SECURED API: Send Broadcast Communication
+app.post('/api/send-message', authenticateToken, upload.single('attachment'), async (req, res) => {
+    const { subject, message, recipient } = req.body;
+    const lang = req.query.lang || 'en';
+
+    try {
+        const mailOptions = {
+            from: `"Communications" <${process.env.SMTP_USER}>`,
+            to: recipient === 'all' ? process.env.SMTP_USER : recipient,
+            subject: subject,
+            html: `<div style="font-family:sans-serif;"><h2>${subject}</h2><p>${message}</p></div>`
+        };
+
+        if (req.file) {
+            // Use the Cloudinary URL from the uploaded file as an attachment
+            mailOptions.attachments = [{ path: req.file.path }];
+        }
+
+        await emailTransporter.sendMail(mailOptions);
+
+        // Log to communications
+        const { data: existingData } = await supabase.from('cms_data').select('data').eq('user_id', req.user.id).single();
+        if (existingData) {
+            let matrix = migrateData(existingData.data);
+            const logEntry = { id: 'msg_' + Date.now(), subject, recipient, timestamp: new Date().toISOString() };
+            matrix.draft[lang].communications_log.push(logEntry);
+            matrix.published[lang].communications_log.push(logEntry);
+            await supabase.from('cms_data').upsert({ user_id: req.user.id, data: matrix }, { onConflict: 'user_id' });
+        }
+
+        logActivity(req.user.id, `BROADCAST_SENT_${recipient}`, 'SUCCESS');
+        res.json({ success: true, message: 'Message sent successfully.' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: 'Failed to send message.' });
+    }
+});
+
+// SECURED API: Live System Vitals Monitor & Smart Cron Health Check
+app.get('/api/system/health', (req, res) => {
+    // This route serves dual purpose: 
+    // 1. Dashboard Vitals (requires auth? We can make it public or header-based for cron)
+    // 2. Cron Job Ping
+    
+    const isCron = req.query.ping === 'true';
+    if (isCron) {
+        logActivity('cron_service', 'WARM_PING', 'SUCCESS');
+        return res.json({ success: true, status: 'WARM' });
+    }
+
     // Memory calculation
     const totalMem = os.totalmem();
     const freeMem = os.freemem();
@@ -559,6 +993,39 @@ app.get('/api/system/health', authenticateToken, (req, res) => {
     });
 });
 
+// SECURED API: System Analytics (GDPR Compliant Aggregation)
+app.get('/api/analytics', authenticateToken, (req, res) => {
+    // Read local logs and count dispatches to create aggregated, anonymized data
+    const logPath = path.join(__dirname, 'logs.txt');
+    if (!fs.existsSync(logPath)) {
+        return res.json({ success: true, totalEmailsSent: 0, activeClients: 0 });
+    }
+    
+    fs.readFile(logPath, 'utf8', (err, data) => {
+        if (err) return res.status(500).json({ success: false, message: 'Failed to read audit logs.' });
+        
+        const lines = data.split('\n');
+        let totalEmails = 0;
+        let clients = new Set();
+
+        lines.forEach(line => {
+            if (line.includes('DISPATCHED_TO_') || line.includes('BROADCAST_SENT') || line.includes('EMAIL_NOTIFICATION_SENT')) {
+                totalEmails++;
+            }
+            if (line.includes('HIGHWAY_[')) {
+                const match = line.match(/HIGHWAY_\[(.*?)\]/);
+                if (match) clients.add(match[1]);
+            }
+        });
+
+        res.json({
+            success: true,
+            totalEmailsSent: totalEmails,
+            activeClients: clients.size
+        });
+    });
+});
+
 app.listen(PORT, () => {
-    console.log(`\n🚀 Secure CMS Server Active on http://localhost:${PORT}/login.html`);
+    console.log(`\n🚀 Secure Mail Server Active on http://localhost:${PORT}/login.html`);
 });

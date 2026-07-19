@@ -36,62 +36,49 @@
         </form>
     </div>
 
-    <script>
-        document.getElementById('login-form').addEventListener('submit', function(e) {
+    <script type="module">
+        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/+esm'
+        
+        const supabaseUrl = 'https://dmlrpjtjabanopetnnqt.supabase.co'
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtbHJwanRqYWJhbm9wZXRubnF0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwODIwNTQsImV4cCI6MjA5NjY1ODA1NH0.bWRcw7zITcBU5sWGmF7BZMAS6khO8H_vXbehUoeSZHU'
+        const supabase = createClient(supabaseUrl, supabaseKey)
+
+        document.getElementById('login-form').addEventListener('submit', async function(e) {
             e.preventDefault();
             const errorMsg = document.getElementById('error-msg');
             errorMsg.style.display = 'none';
 
-            fetch('/api/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    username: document.getElementById('username').value,
-                    password: document.getElementById('password').value
-                })
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    window.location.href = '/admin.html'; // Redirect upon successful auth
-                } else {
-                    errorMsg.textContent = data.message;
-                    errorMsg.style.display = 'block';
-                }
-            })
-            .catch(() => {
-                errorMsg.textContent = "Server communication failure.";
-                errorMsg.style.display = 'block';
+            const { data, error } = await supabase.auth.signInWithPassword({
+                email: document.getElementById('username').value,
+                password: document.getElementById('password').value
             });
+
+            if (error) {
+                errorMsg.textContent = error.message;
+                errorMsg.style.display = 'block';
+            } else {
+                window.location.href = '/admin-supabase.html';
+            }
         });
 
-        document.getElementById('register-btn').addEventListener('click', function() {
+        document.getElementById('register-btn').addEventListener('click', async function() {
             const errorMsg = document.getElementById('error-msg');
             errorMsg.style.display = 'none';
 
-            fetch('/api/register', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    username: document.getElementById('username').value,
-                    password: document.getElementById('password').value
-                })
-            })
-            .then(res => res.json())
-            .then(data => {
-                errorMsg.textContent = data.message;
-                errorMsg.style.display = 'block';
-                if(data.success) {
-                    errorMsg.style.color = "green";
-                } else {
-                    errorMsg.style.color = "#e74c3c";
-                }
-            })
-            .catch(() => {
-                errorMsg.textContent = "Server communication failure.";
+            const { data, error } = await supabase.auth.signUp({
+                email: document.getElementById('username').value,
+                password: document.getElementById('password').value
+            });
+
+            if (error) {
+                errorMsg.textContent = error.message;
                 errorMsg.style.display = 'block';
                 errorMsg.style.color = "#e74c3c";
-            });
+            } else {
+                errorMsg.textContent = "Registration successful! You can now log in.";
+                errorMsg.style.display = 'block';
+                errorMsg.style.color = "green";
+            }
         });
     </script>
 </body>

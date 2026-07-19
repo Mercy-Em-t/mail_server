@@ -294,73 +294,67 @@
         </form>
     </div>
 
-    <script>
-        // --- SECURE VERIFICATION ---
+    <script type="module">
+        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/+esm'
+        
+        const supabaseUrl = 'https://dmlrpjtjabanopetnnqt.supabase.co'
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtbHJwanRqYWJhbm9wZXRubnF0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwODIwNTQsImV4cCI6MjA5NjY1ODA1NH0.bWRcw7zITcBU5sWGmF7BZMAS6khO8H_vXbehUoeSZHU'
+        const supabase = createClient(supabaseUrl, supabaseKey)
+
         let heroQuill; // Global reference for Quill
         let fullMatrix = null;
         let currentLang = 'en';
+        let currentUser = null;
 
         // Verify session immediately before revealing the UI or loading data
-        fetch('/api/verify-session')
-            .then(res => {
-                if (!res.ok) {
-                    window.location.href = '/login.html'; // Redirect to login
-                } else {
-                    return res.json();
-                }
-            })
-            .then(data => {
-                if (data && data.success) {
-                    document.getElementById('main-admin').style.display = 'block';
-                    
-                    // Initialize Hero Quill Editor
-                    heroQuill = new Quill('#heroSubtextEditor', {
-                        theme: 'snow',
-                        modules: { toolbar: [['bold', 'italic', 'underline'], ['link']] }
-                    });
-
-                    // Initialize SortableJS
-                    Sortable.create(document.getElementById('services-container'), { handle: '.drag-handle', animation: 150 });
-                    Sortable.create(document.getElementById('stats-container'), { handle: '.drag-handle', animation: 150 });
-                    Sortable.create(document.getElementById('projects-container'), { handle: '.drag-handle', animation: 150 });
-
-                    // Initialize Character Counters
-                    document.querySelectorAll('input[maxlength]').forEach(input => {
-                        const counter = document.createElement('span');
-                        counter.className = 'char-counter';
-                        const max = input.getAttribute('maxlength');
-                        input.parentNode.appendChild(counter);
-
-                        const updateCounter = () => {
-                            const len = input.value.length;
-                            counter.textContent = `${len} / ${max}`;
-                            counter.className = 'char-counter ' + (len >= max ? 'danger' : len >= max * 0.8 ? 'warning' : '');
-                        };
-                        input.addEventListener('input', updateCounter);
-                        // Store the function so we can call it after data loads
-                        input.updateCounter = updateCounter;
-                    });
-
-                    loadData();
-                    // Load user ID for the Live Site button
-                    fetch('/api/me')
-                        .then(res => res.json())
-                        .then(userData => {
-                            if(userData.user_id) {
-                                document.getElementById('live-site-link').href = `/index.html?user_id=${userData.user_id}`;
-                            }
-                        });
-                }
-            })
-            .catch(() => window.location.href = '/login.html');
-
-        function loadData() {
-            fetch('/api/admin-data')
-                .then(res => res.json())
-                .then(matrix => {
-                    fullMatrix = matrix;
-                    populateForm(fullMatrix.draft[currentLang]);
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            if (!session) {
+                window.location.href = '/login-supabase.html';
+            } else {
+                currentUser = session.user;
+                document.getElementById('main-admin').style.display = 'block';
+                
+                // Initialize Hero Quill Editor
+                heroQuill = new Quill('#heroSubtextEditor', {
+                    theme: 'snow',
+                    modules: { toolbar: [['bold', 'italic', 'underline'], ['link']] }
                 });
+
+                // Initialize SortableJS
+                Sortable.create(document.getElementById('services-container'), { handle: '.drag-handle', animation: 150 });
+                Sortable.create(document.getElementById('stats-container'), { handle: '.drag-handle', animation: 150 });
+                Sortable.create(document.getElementById('projects-container'), { handle: '.drag-handle', animation: 150 });
+
+                // Initialize Character Counters
+                document.querySelectorAll('input[maxlength]').forEach(input => {
+                    const counter = document.createElement('span');
+                    counter.className = 'char-counter';
+                    const max = input.getAttribute('maxlength');
+                    input.parentNode.appendChild(counter);
+
+                    const updateCounter = () => {
+                        const len = input.value.length;
+                        counter.textContent = `${len} / ${max}`;
+                        counter.className = 'char-counter ' + (len >= max ? 'danger' : len >= max * 0.8 ? 'warning' : '');
+                    };
+                    input.addEventListener('input', updateCounter);
+                    input.updateCounter = updateCounter;
+                });
+
+                loadData();
+                document.getElementById('live-site-link').href = `/index-supabase.html?user_id=${currentUser.id}`;
+            }
+        });
+
+        async function loadData() {
+            const { data, error } = await supabase.from('cms_data').select('data').eq('user_id', currentUser.id).single();
+            if (data && data.data) {
+                fullMatrix = data.data;
+            } else {
+                // Default empty state
+                fullMatrix = { draft: { en: {}, es: {} }, published: { en: {}, es: {} } };
+            }
+            populateForm(fullMatrix.draft[currentLang]);
         }
 
         function populateForm(data) {
@@ -423,67 +417,61 @@
         }
 
         // FUNCTION: Load asset bank data from server storage and build library UI
-        function refreshMediaVault() {
+        async function refreshMediaVault() {
             const vaultContainer = document.getElementById('system-media-vault');
             if (!vaultContainer) return;
 
-            fetch('/api/media')
-                .then(res => res.json())
-                .then(data => {
-                    if (!data.success) return;
+            const { data, error } = await supabase.storage.from('media').list(currentUser.id, { limit: 30, sortBy: { column: 'created_at', order: 'desc' } });
+            
+            if (error || !data) return;
+            
+            vaultContainer.innerHTML = ''; // Clear prior render states
+            
+            if (data.length === 0) {
+                vaultContainer.innerHTML = `<p style="grid-column: 1/-1; color: #555; font-size: 0.8rem; text-align: center; margin: 20px 0;">No system files found. Upload your first asset above.</p>`;
+                return;
+            }
+
+            const currentActiveUrl = document.getElementById('heroBgUrl').value;
+
+            data.forEach(file => {
+                const { data: publicData } = supabase.storage.from('media').getPublicUrl(`${currentUser.id}/${file.name}`);
+                const url = publicData.publicUrl;
+
+                const card = document.createElement('div');
+                card.className = `media-thumb-card ${currentActiveUrl === url ? 'selected' : ''}`;
+                card.innerHTML = `
+                    <img src="${url}" alt="Server Asset">
+                    <button type="button" class="delete-asset-btn" title="Archive Asset"><i class="fa-solid fa-trash"></i></button>
+                `;
+                
+                card.addEventListener('click', function() {
+                    document.querySelectorAll('.media-thumb-card').forEach(c => c.classList.remove('selected'));
+                    card.classList.add('selected');
                     
-                    vaultContainer.innerHTML = ''; // Clear prior render states
-                    
-                    if (data.media.length === 0) {
-                        vaultContainer.innerHTML = `<p style="grid-column: 1/-1; color: #555; font-size: 0.8rem; text-align: center; margin: 20px 0;">No system files found. Upload your first asset above.</p>`;
-                        return;
-                    }
-
-                    const currentActiveUrl = document.getElementById('heroBgUrl').value;
-
-                    data.media.forEach(url => {
-                        const card = document.createElement('div');
-                        card.className = `media-thumb-card ${currentActiveUrl === url ? 'selected' : ''}`;
-                        card.innerHTML = `
-                            <img src="${url}" alt="Server Asset">
-                            <button type="button" class="delete-asset-btn" title="Archive Asset"><i class="fa-solid fa-trash"></i></button>
-                        `;
-                        
-                        card.addEventListener('click', function() {
-                            document.querySelectorAll('.media-thumb-card').forEach(c => c.classList.remove('selected'));
-                            card.classList.add('selected');
-                            
-                            document.getElementById('heroBgUrl').value = url;
-                            showToast('Existing asset linked from cloud library!', 'success');
-                        });
-
-                        const deleteBtn = card.querySelector('.delete-asset-btn');
-                        deleteBtn.addEventListener('click', function(e) {
-                            e.stopPropagation();
-                            if(confirm("Are you sure you want to remove this asset?")) {
-                                fetch('/api/delete-media', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ url: url })
-                                })
-                                .then(res => res.json())
-                                .then(data => {
-                                    if(data.success) {
-                                        showToast('Asset archived successfully!', 'success');
-                                        refreshMediaVault();
-                                        if (document.getElementById('heroBgUrl').value === url) {
-                                            document.getElementById('heroBgUrl').value = '';
-                                        }
-                                    } else {
-                                        showToast('Failed to archive asset.', 'error');
-                                    }
-                                });
-                            }
-                        });
-
-                        vaultContainer.appendChild(card);
-                    });
+                    document.getElementById('heroBgUrl').value = url;
+                    showToast('Existing asset linked from cloud library!', 'success');
                 });
+
+                const deleteBtn = card.querySelector('.delete-asset-btn');
+                deleteBtn.addEventListener('click', async function(e) {
+                    e.stopPropagation();
+                    if(confirm("Are you sure you want to remove this asset?")) {
+                        const { error: delErr } = await supabase.storage.from('media').remove([`${currentUser.id}/${file.name}`]);
+                        if (!delErr) {
+                            showToast('Asset deleted successfully!', 'success');
+                            refreshMediaVault();
+                            if (document.getElementById('heroBgUrl').value === url) {
+                                document.getElementById('heroBgUrl').value = '';
+                            }
+                        } else {
+                            showToast('Failed to delete asset.', 'error');
+                        }
+                    }
+                });
+
+                vaultContainer.appendChild(card);
+            });
         }
 
         function addServiceToForm(service = { icon: 'fa-solid fa-star', title: '', desc: '' }) {
@@ -544,28 +532,25 @@
             `;
             container.appendChild(div);
 
-            document.getElementById(fileId).addEventListener('change', function(e) {
+            document.getElementById(fileId).addEventListener('change', async function(e) {
                 const file = e.target.files[0];
                 if (!file) return;
                 const statusSpan = div.querySelector('.help-text');
                 const hiddenInput = div.querySelector('.proj-img');
                 
                 statusSpan.textContent = "Uploading...";
-                const formData = new FormData();
-                formData.append('image', file);
-
-                fetch('/api/upload-image', { method: 'POST', body: formData })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        hiddenInput.value = data.imageUrl;
-                        statusSpan.textContent = "Uploaded successfully!";
-                        statusSpan.style.color = "green";
-                    } else {
-                        statusSpan.textContent = "Upload failed.";
-                        statusSpan.style.color = "red";
-                    }
-                });
+                const fileName = `${Date.now()}_${file.name}`;
+                const { data, error } = await supabase.storage.from('media').upload(`${currentUser.id}/${fileName}`, file);
+                
+                if (!error) {
+                    const { data: publicData } = supabase.storage.from('media').getPublicUrl(`${currentUser.id}/${fileName}`);
+                    hiddenInput.value = publicData.publicUrl;
+                    statusSpan.textContent = "Uploaded successfully!";
+                    statusSpan.style.color = "green";
+                } else {
+                    statusSpan.textContent = "Upload failed.";
+                    statusSpan.style.color = "red";
+                }
             });
         }
         document.getElementById('add-project-btn').addEventListener('click', () => addProjectToForm());
@@ -708,32 +693,26 @@
         });
 
         // --- IMAGE UPLOAD LOGIC ---
-        document.getElementById('heroBgFile').addEventListener('change', function(e) {
+        document.getElementById('heroBgFile').addEventListener('change', async function(e) {
             const file = e.target.files[0];
             if (!file) return;
             
             document.getElementById('heroBgStatus').textContent = "Uploading...";
-            const formData = new FormData();
-            formData.append('image', file);
-
-            fetch('/api/upload-image', {
-                method: 'POST',
-                body: formData
-            })
-            .then(res => res.json())
-            .then(data => {
-                if(data.success) {
-                    document.getElementById('heroBgUrl').value = data.imageUrl;
-                    document.getElementById('heroBgStatus').textContent = 'Upload complete! Image saved to cloud.';
-                    document.getElementById('heroBgStatus').style.color = '#2ecc71';
-                    showToast('Image uploaded and linked successfully!', 'success');
-                    refreshMediaVault();
-                } else {
-                    document.getElementById('heroBgStatus').textContent = 'Upload failed: ' + data.message;
-                    document.getElementById('heroBgStatus').style.color = '#e74c3c';
-                }
-            })
-            .catch(err => console.error(err));
+            const fileName = `${Date.now()}_${file.name}`;
+            
+            const { data, error } = await supabase.storage.from('media').upload(`${currentUser.id}/${fileName}`, file);
+            
+            if (!error) {
+                const { data: publicData } = supabase.storage.from('media').getPublicUrl(`${currentUser.id}/${fileName}`);
+                document.getElementById('heroBgUrl').value = publicData.publicUrl;
+                document.getElementById('heroBgStatus').textContent = 'Upload complete! Image saved to cloud.';
+                document.getElementById('heroBgStatus').style.color = '#2ecc71';
+                showToast('Image uploaded and linked successfully!', 'success');
+                refreshMediaVault();
+            } else {
+                document.getElementById('heroBgStatus').textContent = 'Upload failed: ' + error.message;
+                document.getElementById('heroBgStatus').style.color = '#e74c3c';
+            }
         });
 
         // --- SUBMISSION LOGIC ---
@@ -795,30 +774,28 @@
             };
         }
 
-        function submitForm(mode) {
+        async function submitForm(mode) {
             const payload = collectFormData();
             fullMatrix.draft[currentLang] = payload; 
             
-            fetch('/api/save-data', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ mode: mode, lang: currentLang, payload: payload })
-            })
-            .then(res => {
-                if(res.status === 401 || res.status === 403) window.location.href = '/login.html';
-                return res.json();
-            })
-            .then(response => {
-                if(response.success) {
-                    showToast('Website updated instantly!', 'success');
+            try {
+                const { data, error } = await supabase.functions.invoke('save-data', {
+                    body: { mode: mode, lang: currentLang, payload: payload }
+                });
+                
+                if(error || !data.success) {
+                    if (error && error.message.includes('401')) {
+                        window.location.href = '/login-supabase.html';
+                    } else {
+                        showToast('Server error: ' + (data?.message || error.message), 'error');
+                    }
                 } else {
-                    showToast('Server error: ' + response.message, 'error');
+                    showToast('Website updated instantly!', 'success');
                 }
-            })
-            .catch(error => {
-                console.error('Error saving data:', error);
+            } catch (err) {
+                console.error('Error saving data:', err);
                 showToast('Failed to connect to the server.', 'error');
-            });
+            }
         }
 
         document.getElementById('save-draft-btn').addEventListener('click', () => submitForm('draft'));
@@ -836,7 +813,7 @@
             return false;
         }
 
-        function triggerBackgroundAutoSave() {
+        async function triggerBackgroundAutoSave() {
             const currentPayload = collectFormData();
             const statusText = document.getElementById('autosave-status');
 
@@ -847,14 +824,11 @@
 
             fullMatrix.draft[currentLang] = currentPayload;
             
-            fetch('/api/save-data', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ mode: 'draft', lang: currentLang, payload: currentPayload })
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
+            try {
+                const { data, error } = await supabase.functions.invoke('save-data', {
+                    body: { mode: 'draft', lang: currentLang, payload: currentPayload }
+                });
+                if (data && data.success) {
                     const now = new Date();
                     const timeString = now.toTimeString().split(' ')[0];
                     statusText.innerHTML = `<i class="fa-solid fa-cloud"></i> Draft auto-saved at ${timeString}`;
@@ -863,11 +837,10 @@
                     statusText.textContent = "Background sync suspended: Connection lost.";
                     statusText.style.color = '#e74c3c';
                 }
-            })
-            .catch(() => {
+            } catch (err) {
                 statusText.textContent = "Network error: Auto-save paused.";
                 statusText.style.color = '#e74c3c';
-            });
+            }
         }
 
         // Start checking loop 3 seconds after page loads

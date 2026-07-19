@@ -20,7 +20,9 @@
 <body>
 
     <div class="login-card">
-        <div class="logo">NEXUS</div>
+        <div class="logo">MAIL SERVER</div>
+        
+        <!-- Step 1: Login Form -->
         <form id="login-form">
             <div class="form-group">
                 <label>Email</label>
@@ -31,16 +33,34 @@
                 <input type="password" id="password" required>
             </div>
             <button type="submit" class="btn">Login</button>
-            <button type="button" class="btn" id="register-btn" style="background: transparent; border: 1px solid #d0aa69; color: #d0aa69; margin-top: 10px;">Register</button>
+            <button type="button" class="btn" id="register-btn" style="background: transparent; border: 1px solid #d0aa69; color: #d0aa69; margin-top: 10px;">Register Admin</button>
             <div id="error-msg"></div>
+        </form>
+
+        <!-- Step 2: OTP Form -->
+        <form id="otp-form" style="display: none;">
+            <p style="font-size: 0.85rem; color: #a0a0a0; margin-bottom: 20px;">A verification code has been sent to your email.</p>
+            <div class="form-group">
+                <label>Enter OTP Code</label>
+                <input type="text" id="otp-code" required autocomplete="off" style="text-align: center; font-size: 1.5rem; letter-spacing: 5px;">
+            </div>
+            <button type="submit" class="btn">Verify & Proceed</button>
+            <div id="otp-error-msg" style="color: #e74c3c; font-size: 0.8rem; margin-top: 15px; display: none;"></div>
         </form>
     </div>
 
     <script>
+        let globalVerificationPackage = null;
+
+        // Step 1: Handle Initial Login
         document.getElementById('login-form').addEventListener('submit', function(e) {
             e.preventDefault();
             const errorMsg = document.getElementById('error-msg');
+            const submitBtn = this.querySelector('button[type="submit"]');
+            
             errorMsg.style.display = 'none';
+            submitBtn.textContent = 'Authenticating...';
+            submitBtn.disabled = true;
 
             fetch('/api/login', {
                 method: 'POST',
@@ -52,16 +72,59 @@
             })
             .then(res => res.json())
             .then(data => {
-                if (data.success) {
-                    window.location.href = '/admin.html'; // Redirect upon successful auth
+                if (data.success && data.verificationPackage) {
+                    globalVerificationPackage = data.verificationPackage;
+                    document.getElementById('login-form').style.display = 'none';
+                    document.getElementById('otp-form').style.display = 'block';
                 } else {
-                    errorMsg.textContent = data.message;
+                    errorMsg.textContent = data.message || 'Login failed.';
                     errorMsg.style.display = 'block';
+                    submitBtn.textContent = 'Login';
+                    submitBtn.disabled = false;
                 }
             })
             .catch(() => {
                 errorMsg.textContent = "Server communication failure.";
                 errorMsg.style.display = 'block';
+                submitBtn.textContent = 'Login';
+                submitBtn.disabled = false;
+            });
+        });
+
+        // Step 2: Handle OTP Verification
+        document.getElementById('otp-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const errorMsg = document.getElementById('otp-error-msg');
+            const submitBtn = this.querySelector('button[type="submit"]');
+            
+            errorMsg.style.display = 'none';
+            submitBtn.textContent = 'Verifying...';
+            submitBtn.disabled = true;
+
+            fetch('/api/verify-otp', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    otp: document.getElementById('otp-code').value,
+                    verificationPackage: globalVerificationPackage
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.href = '/admin.html';
+                } else {
+                    errorMsg.textContent = data.message || 'Verification failed.';
+                    errorMsg.style.display = 'block';
+                    submitBtn.textContent = 'Verify & Proceed';
+                    submitBtn.disabled = false;
+                }
+            })
+            .catch(() => {
+                errorMsg.textContent = "Server communication failure.";
+                errorMsg.style.display = 'block';
+                submitBtn.textContent = 'Verify & Proceed';
+                submitBtn.disabled = false;
             });
         });
 

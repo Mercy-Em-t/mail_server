@@ -674,7 +674,13 @@
 
 
 
-    <script>
+    <script type="module">
+        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/+esm'
+        
+        const supabaseUrl = 'https://dmlrpjtjabanopetnnqt.supabase.co'
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtbHJwanRqYWJhbm9wZXRubnF0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwODIwNTQsImV4cCI6MjA5NjY1ODA1NH0.bWRcw7zITcBU5sWGmF7BZMAS6khO8H_vXbehUoeSZHU'
+        const supabase = createClient(supabaseUrl, supabaseKey)
+
         // Fetch the external JSON file or Supabase data
         const urlParams = new URLSearchParams(window.location.search);
         const userId = urlParams.get('user_id');
@@ -682,8 +688,6 @@
         
         document.getElementById('lang-en-btn').href = `?lang=en${userId ? '&user_id='+userId : ''}`;
         document.getElementById('lang-es-btn').href = `?lang=es${userId ? '&user_id='+userId : ''}`;
-
-        const fetchUrl = userId ? `/api/data?user_id=${userId}&lang=${lang}` : 'data.json';
         
         function renderPage(data) {
                 
@@ -864,11 +868,22 @@
             fetchData();
         }
 
-        function fetchData() {
-            fetch(fetchUrl)
-                .then(response => response.json())
-                .then(data => renderPage(data))
-                .catch(error => console.error('Error fetching data:', error));
+        async function fetchData() {
+            if (!userId) {
+                console.error("No user_id provided in URL");
+                return;
+            }
+            try {
+                const { data, error } = await supabase.from('cms_data').select('data').eq('user_id', userId).single();
+                if (error || !data) {
+                    console.error('Error fetching data from Supabase:', error);
+                } else {
+                    const activeData = (data.data.published && data.data.published[lang]) ? data.data.published[lang] : data.data;
+                    renderPage(activeData);
+                }
+            } catch (err) {
+                console.error('Error during data fetch:', err);
+            }
         }
 
         // Form Submission Logic
@@ -886,7 +901,12 @@
             msgDiv.textContent = 'Submitting...';
             
             try {
-                const targetUrl = formKey ? `/api/submit-form/${formId}?key=${formKey}&lang=${lang}` : `/api/submit-form/${formId}?lang=${lang}`;
+                // Keep the exact same API signature so external clients aren't affected
+                const baseUrl = `https://dmlrpjtjabanopetnnqt.supabase.co/functions/v1/submit-form/${formId}`;
+                const targetUrl = formKey 
+                    ? `${baseUrl}?key=${formKey}&lang=${lang}` 
+                    : `${baseUrl}?lang=${lang}`;
+                
                 const response = await fetch(targetUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },

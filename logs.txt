@@ -21,3 +21,7 @@
 [2026-06-18 09:00:51] User: '301b65a3-2922-4124-ad6d-cb0e17c3a534' | Action: USER_LOGIN | Status: SUCCESS
 [2026-06-18 09:04:34] User: '301b65a3-2922-4124-ad6d-cb0e17c3a534' | Action: MUTATE_CMS_DATA_PUBLISH | Status: SUCCESS
 [2026-06-18 09:29:17] User: '301b65a3-2922-4124-ad6d-cb0e17c3a534' | Action: USER_LOGIN | Status: SUCCESS
+[2026-07-19 15:27:10] User: 'HIGHWAY_[unknown_client]' | Action: DISPATCHED_TO_testuser@example.com | Status: SUCCESS
+[2026-07-19 16:03:09] User: 'HIGHWAY_[test_client]' | Action: DISPATCHED_TO_memurugat@gmail.com | Status: SUCCESS
+[2026-07-19 16:03:14] User: 'HIGHWAY_[test_client]' | Action: DISPATCHED_TO_memurugat@gmail.com | Status: SUCCESS
+[2026-07-19 16:03:14] User: 'test_client' | Action: HIGHWAY_ACCESS | Status: FAILED_INVALID_TOKEN

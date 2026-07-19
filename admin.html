@@ -3,947 +3,661 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexus Admin Panel</title>
+    <title>Mail Server Operations Center — TM Savannah</title>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <!-- Quill.js for Rich Text -->
     <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
     <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
-    
-    <!-- SortableJS for Drag-and-Drop -->
-    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"> </script>
 
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f4f4f9;
-            color: #333;
-            padding: 40px;
-            max-width: 800px;
-            margin: 0 auto;
-        }
-        .admin-card {
-            background: white;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-        }
-        h2 { margin-top: 0; color: #121315; }
-        .form-group { margin-bottom: 20px; }
-        label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 0.9rem; }
-        input[type="text"], input[type="password"], textarea {
-            width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; box-sizing: border-box;
-        }
-        input:invalid, textarea:invalid { border-color: #e74c3c; background-color: #fdf0ed; }
-        .help-text { font-size: 0.75rem; color: #777; margin-top: 5px; display: block; }
-        .btn { background: #121315; color: white; padding: 12px 24px; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; }
-        .btn:hover { background: #333; }
-        .btn-secondary { background: #3498db; margin-top: 10px; padding: 8px 16px; }
-        .btn-secondary:hover { background: #2980b9; }
-        
-        input:focus, textarea:focus { border-color: #d0aa69; outline: none; }
-        
-        .char-counter { font-size: 0.75rem; color: #a0a0a0; text-align: right; display: block; margin-top: 4px; }
-        .char-counter.warning { color: #f39c12; }
-        .char-counter.danger { color: #e74c3c; }
+        *, *::before, *::after { box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background-color: #0b0c10; color: #c5c6c7; padding: 32px 20px; max-width: 1000px; margin: 0 auto; }
 
-        /* Quill.js Dark Theme Overrides */
-        .ql-container { font-family: var(--font-sans); font-size: 0.9rem; background: #121315; color: #fff; border-color: #333 !important; border-bottom-left-radius: 4px; border-bottom-right-radius: 4px; }
-        .ql-toolbar { background: #1c1d1f; border-color: #333 !important; border-top-left-radius: 4px; border-top-right-radius: 4px; }
-        .ql-snow .ql-stroke { stroke: #a0a0a0; }
-        .ql-snow .ql-fill { fill: #a0a0a0; }
-        .ql-snow .ql-picker { color: #a0a0a0; }
-        .ql-editor { min-height: 100px; }
+        /* ── Header ── */
+        .admin-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; }
+        h2 { margin: 0; color: #66fcf1; font-family: 'Playfair Display', serif; letter-spacing: 1px; font-size: 1.4rem; }
+        h3 { color: #45a29e; border-bottom: 1px solid #2a3138; padding-bottom: 10px; margin-top: 0; }
+        h4 { color: #c5c6c7; margin: 24px 0 12px; }
 
-        .dynamic-item { border: 1px solid #eaeaea; padding: 15px; padding-left: 45px; border-radius: 6px; margin-bottom: 15px; position: relative; background: #fafafa; }
-        .remove-btn { position: absolute; top: 15px; right: 15px; background: #e74c3c; color: white; border: none; padding: 4px 8px; cursor: pointer; border-radius: 4px; font-size: 0.8rem; }
-        .remove-btn:hover { background: #c0392b; }
-        
-        .drag-handle { position: absolute; top: 15px; left: 15px; color: #a0a0a0; cursor: grab; font-size: 1.2rem; }
-        .drag-handle:active { cursor: grabbing; }
-        
-        #toast { visibility: hidden; min-width: 250px; background-color: #333; color: #fff; text-align: center; border-radius: 4px; padding: 16px; position: fixed; z-index: 1000; left: 50%; bottom: 30px; transform: translateX(-50%); font-size: 0.9rem; transition: visibility 0s, opacity 0.5s linear, bottom 0.5s ease-in-out; opacity: 0; }
+        /* ── HUD ── */
+        .vitals-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin-bottom: 28px; }
+        .vital-card { background: #1f2833; border: 1px solid #45a29e; padding: 14px; border-radius: 6px; text-align: center; }
+        .vital-label { color: #c5c6c7; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; }
+        .vital-value { font-size: 1.6rem; color: #66fcf1; font-weight: 500; margin-top: 6px; }
+
+        /* ── Nav Tabs ── */
+        .nav-tabs { display: flex; gap: 4px; margin-bottom: 24px; border-bottom: 2px solid #2a3138; flex-wrap: wrap; }
+        .nav-tab { padding: 10px 18px; cursor: pointer; border-radius: 4px 4px 0 0; color: #c5c6c7; font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; border: none; background: transparent; transition: all 0.2s; }
+        .nav-tab:hover { background: rgba(102,252,241,0.08); color: #66fcf1; }
+        .nav-tab.active { background: #45a29e; color: #0b0c10; }
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+
+        /* ── Forms ── */
+        .form-group { margin-bottom: 18px; }
+        label { display: block; margin-bottom: 7px; font-weight: 600; font-size: 0.85rem; color: #c5c6c7; }
+        input[type="text"], input[type="email"], input[type="password"], textarea, select {
+            width: 100%; padding: 11px 13px; background: #0b0c10; border: 1px solid #45a29e; border-radius: 4px; color: #fff; font-size: 0.9rem;
+        }
+        input:focus, textarea:focus, select:focus { border-color: #66fcf1; outline: none; }
+        select option { background: #1f2833; }
+
+        /* ── Buttons ── */
+        .btn { background: #66fcf1; color: #0b0c10; padding: 11px 22px; border: none; border-radius: 4px; cursor: pointer; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; font-size: 0.8rem; transition: all 0.2s; }
+        .btn:hover { background: #45a29e; color: #fff; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-sm { padding: 7px 14px; font-size: 0.75rem; }
+        .btn-danger { background: #e74c3c; color: white; }
+        .btn-danger:hover { background: #c0392b; }
+        .btn-ghost { background: transparent; color: #66fcf1; border: 1px solid #66fcf1; }
+        .btn-ghost:hover { background: #66fcf1; color: #0b0c10; }
+        .btn-warn { background: #e67e22; color: white; }
+        .btn-warn:hover { background: #ca6f1e; }
+        .btn-full { width: 100%; }
+
+        /* ── Quill ── */
+        .ql-container { font-family: Inter, sans-serif; font-size: 0.9rem; background: #0b0c10; color: #fff; border-color: #45a29e !important; border-radius: 0 0 4px 4px; }
+        .ql-toolbar { background: #1f2833; border-color: #45a29e !important; border-radius: 4px 4px 0 0; }
+        .ql-snow .ql-stroke { stroke: #c5c6c7; }
+        .ql-snow .ql-fill { fill: #c5c6c7; }
+        .ql-snow .ql-picker { color: #c5c6c7; }
+
+        /* ── Client Table ── */
+        .data-table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+        .data-table th { text-align: left; padding: 10px 12px; color: #66fcf1; background: #0b0c10; font-weight: 600; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 1px; }
+        .data-table td { padding: 10px 12px; border-bottom: 1px solid #1f2833; vertical-align: middle; }
+        .data-table tr:hover td { background: rgba(102,252,241,0.04); }
+        .data-table td:last-child { white-space: nowrap; display: flex; gap: 6px; flex-wrap: wrap; }
+
+        .badge { display: inline-block; padding: 3px 9px; border-radius: 20px; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; }
+        .badge-active { background: rgba(46,204,113,0.2); color: #2ecc71; }
+        .badge-inactive { background: rgba(231,76,60,0.2); color: #e74c3c; }
+        .badge-type { background: rgba(102,252,241,0.12); color: #66fcf1; margin: 2px; font-size: 0.65rem; padding: 2px 6px; }
+
+        /* ── Template Cards ── */
+        .template-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; margin-top: 16px; }
+        .template-card { background: #0b0c10; border: 1px solid #2a3138; border-radius: 6px; padding: 16px; transition: border-color 0.2s; }
+        .template-card:hover { border-color: #45a29e; }
+        .template-card-name { font-weight: 600; color: #fff; margin-bottom: 4px; font-size: 0.95rem; }
+        .template-card-id { font-size: 0.72rem; color: #666; font-family: monospace; margin-bottom: 8px; }
+        .template-card-actions { display: flex; gap: 6px; margin-top: 14px; flex-wrap: wrap; }
+
+        /* ── Secret Box ── */
+        .secret-box { background: #0b0c10; border: 1px solid #2ecc71; border-radius: 4px; padding: 14px 16px; font-family: monospace; font-size: 0.78rem; color: #2ecc71; word-break: break-all; margin-top: 12px; position: relative; }
+        .secret-box p { margin: 0 0 4px; color: #e74c3c; font-family: Inter, sans-serif; font-size: 0.8rem; font-weight: 600; }
+
+        /* ── Info Panel ── */
+        .info-panel { background: rgba(102,252,241,0.05); border: 1px dashed #45a29e; border-radius: 6px; padding: 16px 20px; margin-bottom: 20px; font-size: 0.85rem; color: #a0a0a0; }
+        .info-panel code { background: rgba(0,0,0,0.3); padding: 1px 6px; border-radius: 3px; color: #66fcf1; font-size: 0.8rem; }
+
+        /* ── Toast ── */
+        #toast { visibility: hidden; min-width: 280px; background-color: #333; color: #fff; text-align: center; border-radius: 6px; padding: 14px 20px; position: fixed; z-index: 1000; left: 50%; bottom: 30px; transform: translateX(-50%); font-size: 0.88rem; transition: all 0.3s; opacity: 0; }
         #toast.show { visibility: visible; opacity: 1; bottom: 50px; }
         #toast.success { background-color: #27ae60; }
-        .toast.error { background: #e74c3c; color: white; border-left: 4px solid #c0392b; }
+        #toast.error { background-color: #e74c3c; }
+        #toast.info { background-color: #2980b9; }
 
-        .media-gallery-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-            gap: 12px;
-            background: #1c1d1f;
-            border: 1px solid #2a2b2d;
-            padding: 15px;
-            border-radius: 6px;
-            max-height: 220px;
-            overflow-y: auto;
-            margin-top: 10px;
-        }
-        .media-thumb-card {
-            position: relative;
-            aspect-ratio: 16 / 10;
-            border-radius: 4px;
-            overflow: hidden;
-            cursor: pointer;
-            border: 2px solid transparent;
-            transition: all 0.2s ease;
-        }
-        .media-thumb-card img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        .media-thumb-card:hover {
-            transform: scale(1.03);
-            border-color: #d0aa69;
-        }
-        .media-thumb-card.selected {
-            border-color: #2ecc71;
-            box-shadow: 0 0 10px rgba(46, 204, 113, 0.3);
-        }
-        .media-thumb-card .delete-asset-btn {
-            position: absolute;
-            top: 5px;
-            right: 5px;
-            background: rgba(231, 76, 60, 0.9);
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 24px;
-            height: 24px;
-            font-size: 0.7rem;
-            cursor: pointer;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            transition: background 0.2s;
-        }
-        .media-thumb-card:hover .delete-asset-btn {
-            display: flex;
-        }
-        .media-thumb-card .delete-asset-btn:hover {
-            background: #c0392b;
-        }
-        .collapsible-header {
-            background: #1c1d1f;
-            color: #fff;
-            padding: 15px;
-            border-radius: 6px;
-            cursor: pointer;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-top: 25px;
-            margin-bottom: 15px;
-            transition: background 0.2s;
-        }
-        .collapsible-header:hover {
-            background: #2a2b2d;
-        }
-        .collapsible-header h3 {
-            margin: 0;
-            color: #fff;
-            font-size: 1.1rem;
-        }
-        .collapsible-header .chevron {
-            transition: transform 0.3s ease;
-        }
-        .collapsible-header.active .chevron {
-            transform: rotate(180deg);
-        }
-        .collapsible-content {
-            display: none;
-            padding: 5px 10px;
-            animation: slideDown 0.3s ease-out forwards;
-        }
-        .collapsible-content.active {
-            display: block;
-        }
-        @keyframes slideDown {
-            from { opacity: 0; transform: translateY(-10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
+        /* ── Variable helper chips ── */
+        .var-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+        .var-chip { background: rgba(102,252,241,0.12); color: #66fcf1; font-family: monospace; font-size: 0.75rem; padding: 3px 10px; border-radius: 20px; cursor: pointer; border: 1px solid transparent; }
+        .var-chip:hover { border-color: #66fcf1; }
     </style>
 </head>
 <body>
     <div id="toast">Message</div>
 
-    <!-- Main Admin Panel (Hidden until session verified) -->
-    <div class="admin-card" id="main-admin" style="display:none;">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <h2>Website Content Generator</h2>
+    <div id="main-admin" style="display:none;">
+
+        <!-- ═══ HEADER ═══ -->
+        <div class="admin-header">
             <div>
-                <a id="live-site-link" href="#" target="_blank" class="btn btn-secondary" style="background:#27ae60; margin-top:0; text-decoration: none; display: inline-block; margin-right: 10px;">View Live Site</a>
-                <button class="btn btn-secondary" id="logout-btn" style="background:#e74c3c; margin-top:0;">Logout</button>
+                <h2><i class="fa-solid fa-envelope-open-text" style="margin-right:10px;"></i>MAIL SERVER OPERATIONS</h2>
+                <div style="font-size:0.75rem;color:#666;margin-top:4px;">mail.tmsavannah.com</div>
             </div>
-        </div>
-        <p style="margin-bottom: 30px; font-size: 0.9rem; color: #555;">Update your site's text, images, and services. Changes save directly to your server.</p>
-
-        <!-- Live System Vitals HUD -->
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 30px;">
-            <div style="background:#1c1d1f; border:1px solid #2a2b2d; padding:15px; border-radius:6px; text-align:center;">
-                <div style="color:#555; font-size:0.7rem; text-transform:uppercase;">Host Memory Allocations</div>
-                <div id="health-mem" style="font-size:1.6rem; color:#2ecc71; font-weight:500; margin-top:5px;">0.0%</div>
-            </div>
-            <div style="background:#1c1d1f; border:1px solid #2a2b2d; padding:15px; border-radius:6px; text-align:center;">
-                <div style="color:#555; font-size:0.7rem; text-transform:uppercase;">Host CPU Compute Load</div>
-                <div id="health-cpu" style="font-size:1.6rem; color:#d0aa69; font-weight:500; margin-top:5px;">0.00</div>
-            </div>
-            <div style="background:#1c1d1f; border:1px solid #2a2b2d; padding:15px; border-radius:6px; text-align:center;">
-                <div style="color:#555; font-size:0.7rem; text-transform:uppercase;">Platform Server Uptime</div>
-                <div id="health-uptime" style="font-size:1.6rem; color:#fff; font-weight:500; margin-top:5px;">0.00 Hrs</div>
-            </div>
+            <button class="btn btn-danger btn-sm" id="logout-btn"><i class="fa-solid fa-arrow-right-from-bracket"></i> Logout</button>
         </div>
 
-        <form id="cms-form">
-            <h3>1. Brand & Notification Settings</h3>
+        <!-- ═══ LIVE HUD ═══ -->
+        <div class="vitals-grid">
+            <div class="vital-card">
+                <div class="vital-label">Memory</div>
+                <div id="health-mem" class="vital-value">—</div>
+            </div>
+            <div class="vital-card">
+                <div class="vital-label">CPU Load</div>
+                <div id="health-cpu" class="vital-value" style="color:#f1c40f;">—</div>
+            </div>
+            <div class="vital-card">
+                <div class="vital-label">Uptime</div>
+                <div id="health-uptime" class="vital-value" style="color:#2ecc71;">—</div>
+            </div>
+            <div class="vital-card" style="border-color:#e67e22;">
+                <div class="vital-label">Total Dispatched</div>
+                <div id="analytics-emails" class="vital-value" style="color:#e67e22;">0</div>
+            </div>
+            <div class="vital-card" style="border-color:#3498db;">
+                <div class="vital-label">Active Clients</div>
+                <div id="analytics-clients" class="vital-value" style="color:#3498db;">0</div>
+            </div>
+        </div>
+
+        <!-- ═══ NAVIGATION TABS ═══ -->
+        <div class="nav-tabs">
+            <button class="nav-tab active" onclick="switchTab('tab-broadcast')"><i class="fa-solid fa-paper-plane"></i> Broadcast</button>
+            <button class="nav-tab" onclick="switchTab('tab-clients')"><i class="fa-solid fa-building-columns"></i> Clients</button>
+            <button class="nav-tab" onclick="switchTab('tab-templates')"><i class="fa-solid fa-layer-group"></i> Templates</button>
+            <button class="nav-tab" onclick="switchTab('tab-memos')"><i class="fa-solid fa-stamp"></i> Memos</button>
+        </div>
+
+        <!-- ════════════════════════════════════════════════════
+             TAB 1: BROADCAST
+        ═════════════════════════════════════════════════════ -->
+        <div id="tab-broadcast" class="tab-panel active">
+            <h3><i class="fa-solid fa-paper-plane" style="margin-right:8px;"></i>Manual Broadcast</h3>
             <div class="form-group">
-                <label>Brand Name</label>
-                <input type="text" id="brandName" required maxlength="30">
+                <label>Recipient</label>
+                <input type="text" id="commRecipient" placeholder="user@example.com">
             </div>
             <div class="form-group">
-                <label>Notification Email (For Leads)</label>
-                <input type="email" id="adminEmail" placeholder="Where should we send your leads?" style="width: 100%; padding: 12px; background: #121315; border: 1px solid #333; border-radius: 4px; color: #fff; box-sizing: border-box;">
+                <label>Subject</label>
+                <input type="text" id="commSubject" placeholder="Subject of the message">
             </div>
-            
-            <div class="form-group" style="background: rgba(208, 170, 105, 0.1); padding: 15px; border-radius: 6px; border: 1px solid rgba(208, 170, 105, 0.3); margin-top: 20px;">
-                <label style="color: #d0aa69;">Public Form Key (For External Sites)</label>
-                <p style="font-size: 0.8rem; color: #aaa; margin: 0 0 10px 0;">Use this key to securely submit forms to your endpoint from other websites. Do NOT expose your true User ID.</p>
-                <div style="display: flex; gap: 10px;">
-                    <input type="text" id="formKey" readonly style="width: 100%; padding: 12px; background: #121315; border: 1px solid #333; border-radius: 4px; color: #d0aa69; box-sizing: border-box; font-family: monospace;">
-                    <button type="button" class="btn" style="width: auto; padding: 0 20px;" onclick="navigator.clipboard.writeText('https://your-api.com/api/submit-form/[form_id]?key=' + document.getElementById('formKey').value); alert('Endpoint Snippet Copied!');">Copy URL</button>
+            <div class="form-group">
+                <label>Message Body</label>
+                <div id="commBodyEditor" style="height:220px;"></div>
+            </div>
+            <button type="button" class="btn btn-full" id="send-comm-btn"><i class="fa-solid fa-paper-plane"></i> Send Broadcast</button>
+        </div>
+
+        <!-- ════════════════════════════════════════════════════
+             TAB 2: CLIENT MANAGER
+        ═════════════════════════════════════════════════════ -->
+        <div id="tab-clients" class="tab-panel">
+            <h3><i class="fa-solid fa-building-columns" style="margin-right:8px;"></i>Client Accounts</h3>
+
+            <div class="info-panel">
+                Each client site uses its own <code>client_id</code> + <code>secret</code> to sign JWT tokens.
+                Include the token in the <code>x-highway-token</code> header when calling <code>POST /api/dispatch</code>.
+            </div>
+
+            <!-- Register new client form -->
+            <h4>Register New Client</h4>
+            <div style="background:#1f2833;padding:20px;border-radius:6px;margin-bottom:24px;">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+                    <div class="form-group" style="margin:0;">
+                        <label>Client Name</label>
+                        <input type="text" id="reg-name" placeholder="e.g. TM Savannah Sports">
+                    </div>
+                    <div class="form-group" style="margin:0;">
+                        <label>Domain</label>
+                        <input type="text" id="reg-domain" placeholder="sports.tmsavannah.com">
+                    </div>
+                </div>
+                <div class="form-group" style="margin-top:14px;">
+                    <label>Daily Quota</label>
+                    <input type="text" id="reg-quota" placeholder="500" style="width:120px;">
+                </div>
+                <div class="form-group">
+                    <label>Allowed Message Types</label>
+                    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:4px;">
+                        <label style="font-weight:400;display:flex;gap:6px;align-items:center;"><input type="checkbox" class="msg-type-check" value="transactional" checked> Transactional</label>
+                        <label style="font-weight:400;display:flex;gap:6px;align-items:center;"><input type="checkbox" class="msg-type-check" value="notification" checked> Notification</label>
+                        <label style="font-weight:400;display:flex;gap:6px;align-items:center;"><input type="checkbox" class="msg-type-check" value="marketing"> Marketing</label>
+                        <label style="font-weight:400;display:flex;gap:6px;align-items:center;"><input type="checkbox" class="msg-type-check" value="internal"> Internal</label>
+                        <label style="font-weight:400;display:flex;gap:6px;align-items:center;"><input type="checkbox" class="msg-type-check" value="auto_reply" checked> Auto Reply</label>
+                    </div>
+                </div>
+                <button class="btn" id="register-client-btn"><i class="fa-solid fa-plus"></i> Register Client</button>
+            </div>
+
+            <!-- New client secret reveal (shown after registration) -->
+            <div id="new-client-reveal" style="display:none;">
+                <div class="secret-box">
+                    <p><i class="fa-solid fa-triangle-exclamation"></i> Copy this secret NOW — it will NOT be shown again.</p>
+                    <strong>client_id:</strong> <span id="reveal-client-id"></span><br><br>
+                    <strong>secret:</strong><br>
+                    <span id="reveal-secret"></span>
+                </div>
+                <button class="btn btn-sm" style="margin-top:10px;" onclick="copySecret()"><i class="fa-solid fa-copy"></i> Copy Secret</button>
+            </div>
+
+            <!-- Client list -->
+            <h4>Registered Clients</h4>
+            <div id="clients-table-wrap">
+                <p style="color:#666;">Loading...</p>
+            </div>
+        </div>
+
+        <!-- ════════════════════════════════════════════════════
+             TAB 3: TEMPLATE LIBRARY
+        ═════════════════════════════════════════════════════ -->
+        <div id="tab-templates" class="tab-panel">
+            <h3><i class="fa-solid fa-layer-group" style="margin-right:8px;"></i>Template Library</h3>
+
+            <div class="info-panel">
+                Templates use <code>{{variable}}</code> placeholders. Clients call templates by ID via
+                <code>"template": "welcome_email"</code> in the dispatch payload.
+            </div>
+
+            <!-- Template list -->
+            <div id="template-grid-wrap"><p style="color:#666;">Loading...</p></div>
+
+            <hr style="border:none;border-top:1px solid #2a3138;margin:30px 0;">
+
+            <!-- Create / Edit template form -->
+            <h4 id="template-form-title">Create New Template</h4>
+            <div style="background:#1f2833;padding:20px;border-radius:6px;">
+                <input type="hidden" id="tmpl-editing-id">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+                    <div class="form-group" style="margin:0;">
+                        <label>Template ID <span style="color:#666;font-weight:400;">(slug, no spaces)</span></label>
+                        <input type="text" id="tmpl-id" placeholder="e.g. welcome_email">
+                    </div>
+                    <div class="form-group" style="margin:0;">
+                        <label>Display Name</label>
+                        <input type="text" id="tmpl-name" placeholder="e.g. Welcome Email">
+                    </div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px;">
+                    <div class="form-group" style="margin:0;">
+                        <label>Message Type</label>
+                        <select id="tmpl-type">
+                            <option value="transactional">Transactional</option>
+                            <option value="notification">Notification</option>
+                            <option value="marketing">Marketing</option>
+                            <option value="internal">Internal</option>
+                            <option value="auto_reply">Auto Reply</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin:0;">
+                        <label>Subject</label>
+                        <input type="text" id="tmpl-subject" placeholder="e.g. Welcome to {{brand_name}}!">
+                    </div>
+                </div>
+                <div class="form-group" style="margin-top:14px;">
+                    <label>Variable Chips — click to insert into editor</label>
+                    <div class="var-chips">
+                        <span class="var-chip" onclick="insertVar('name')">{{name}}</span>
+                        <span class="var-chip" onclick="insertVar('brand_name')">{{brand_name}}</span>
+                        <span class="var-chip" onclick="insertVar('email')">{{email}}</span>
+                        <span class="var-chip" onclick="insertVar('otp_code')">{{otp_code}}</span>
+                        <span class="var-chip" onclick="insertVar('cta_url')">{{cta_url}}</span>
+                        <span class="var-chip" onclick="insertVar('cta_label')">{{cta_label}}</span>
+                        <span class="var-chip" onclick="insertVar('message')">{{message}}</span>
+                        <span class="var-chip" onclick="insertVar('reference_id')">{{reference_id}}</span>
+                        <span class="var-chip" onclick="insertVar('timestamp')">{{timestamp}}</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>HTML Body</label>
+                    <div id="tmplBodyEditor" style="height:240px;"></div>
+                </div>
+                <div style="display:flex;gap:10px;">
+                    <button class="btn" id="save-template-btn"><i class="fa-solid fa-floppy-disk"></i> Save Template</button>
+                    <button class="btn btn-ghost btn-sm" id="clear-template-btn"><i class="fa-solid fa-xmark"></i> Clear</button>
                 </div>
             </div>
+        </div>
 
-            <!-- 2. Hero Section -->
-            <h3>2. Hero Section</h3>
+        <!-- ════════════════════════════════════════════════════
+             TAB 4: MEMOS
+        ═════════════════════════════════════════════════════ -->
+        <div id="tab-memos" class="tab-panel">
+            <h3><i class="fa-solid fa-stamp" style="margin-right:8px;"></i>Cryptographic Memos</h3>
             <div class="form-group">
-                <label>Tagline</label>
-                <input type="text" id="heroTagline" required maxlength="50">
-            </div>
-            <div class="form-group">
-                <label>Headline</label>
-                <input type="text" id="heroHeadline" required maxlength="100">
-            </div>
-            <div class="header-actions">
-                <select id="lang-select" style="padding: 5px; border-radius: 4px; background: #333; color: white; border: 1px solid #555;">
-                    <option value="en">English</option>
-                    <option value="es">Español</option>
-                </select>
-                <a href="#" class="btn btn-outline" id="live-site-link" target="_blank">Live Site</a>
-                <div class="menu-btn"><i class="fa-solid fa-ellipsis"></i></div>
+                <label>Memo ID</label>
+                <input type="text" id="memoId" placeholder="e.g. SYS-LOG-001">
             </div>
             <div class="form-group">
-                <label>Hero Subtext</label>
-                <div id="heroSubtextEditor" style="height: 120px;"></div>
+                <label>Author / System</label>
+                <input type="text" id="memoAuthor" placeholder="Admin">
             </div>
-            
-            <!-- Handle Image Uploads -->
             <div class="form-group">
-                <label>Hero Background Image</label>
-                <input type="file" id="heroBgFile" accept="image/*">
-                <span class="help-text" id="heroBgStatus">Upload a new graphic asset, or pick one from your cloud library below:</span>
-                <input type="hidden" id="heroBgUrl">
-                <div class="media-gallery-grid" id="system-media-vault"></div>
+                <label>Content</label>
+                <div id="memoEditor" style="height:150px;margin-bottom:15px;"></div>
             </div>
+            <button type="button" class="btn btn-ghost btn-full" id="stamp-memo-btn">
+                <i class="fa-solid fa-stamp"></i> Apply Cryptographic Stamp
+            </button>
 
-            <!-- Handle Dynamic Arrays -->
-            <h3>3. Services (Dynamic Array)</h3>
-            <div id="services-container"></div>
-            <button type="button" class="btn btn-secondary" id="add-service-btn">+ Add Service</button>
-            <br><br>
+            <h4>Archived Memos</h4>
+            <div id="stamped-memos-list" style="background:#0b0c10;padding:15px;border-radius:6px;border:1px solid #1f2833;"></div>
+        </div>
 
-            <h3>4. Stats Bar</h3>
-            <div id="stats-container"></div>
-            <button type="button" class="btn btn-secondary" id="add-stat-btn">+ Add Stat</button>
-            <br><br>
-
-            <h3>5. Projects / Case Studies</h3>
-            <div id="projects-container"></div>
-            <button type="button" class="btn btn-secondary" id="add-project-btn">+ Add Project</button>
-            <br><br><hr style="border: 0; border-top: 1px solid #ddd; margin: 30px 0;">
-
-            <h3>6. Dynamic Forms Builder</h3>
-            <div id="forms-container"></div>
-            <button type="button" class="btn btn-secondary" id="add-form-btn">+ Create New Form</button>
-            <br><br><hr style="border: 0; border-top: 1px solid #ddd; margin: 30px 0;">
-
-            <h3>📥 Lead Responses Inbox</h3>
-            <div class="form-group">
-                <label>Select Form to View Responses</label>
-                <select id="inbox-select" style="padding: 10px; width: 100%; background: #1c1d1f; color: white; border: 1px solid #333;">
-                    <option value="">-- No Forms Available --</option>
-                </select>
-            </div>
-            <button type="button" class="btn btn-secondary" id="export-csv-btn" style="display: none; margin-bottom: 15px;"><i class="fa-solid fa-file-csv"></i> Download CSV</button>
-            <div id="inbox-container" style="overflow-x: auto;">
-                <p style="color: #777;">Select a form to view its leads.</p>
-            </div>
-            <br><br><hr style="border: 0; border-top: 1px solid #ddd; margin: 30px 0;">
-            
-            <!-- Handle Image Uploads -->
-            <div style="display: flex; gap: 15px; margin-top: 40px;">
-                <button type="button" id="save-draft-btn" class="btn btn-secondary" style="flex: 1;">Save Draft</button>
-                <button type="button" id="publish-live-btn" class="btn" style="flex: 1; background: #27ae60; border-color: #27ae60;">Publish Live</button>
-            </div>
-            <div style="margin-top: 15px; font-size: 0.8rem; color: #666; text-align: center; font-style: italic;" id="autosave-status">
-                System idle. Draft changes are monitored automatically.
-            </div>
-        </form>
-    </div>
+    </div><!-- /#main-admin -->
 
     <script>
-        // --- SECURE VERIFICATION ---
-        let heroQuill; // Global reference for Quill
-        let fullMatrix = null;
-        let currentLang = 'en';
+    // ─────────────────────────────────────────────────────────────
+    // GLOBALS
+    // ─────────────────────────────────────────────────────────────
+    let commQuill, memoQuill, tmplQuill;
+    let fullData = null;
+    let lastRevealedSecret = '';
 
-        // Verify session immediately before revealing the UI or loading data
-        fetch('/api/verify-session')
-            .then(res => {
-                if (!res.ok) {
-                    window.location.href = '/login.html'; // Redirect to login
-                } else {
-                    return res.json();
-                }
-            })
-            .then(data => {
-                if (data && data.success) {
-                    document.getElementById('main-admin').style.display = 'block';
-                    
-                    // Initialize Hero Quill Editor
-                    heroQuill = new Quill('#heroSubtextEditor', {
-                        theme: 'snow',
-                        modules: { toolbar: [['bold', 'italic', 'underline'], ['link']] }
-                    });
+    // ─────────────────────────────────────────────────────────────
+    // UTILITIES
+    // ─────────────────────────────────────────────────────────────
+    function showToast(msg, type = 'success') {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.className = 'show ' + type;
+        setTimeout(() => { t.className = t.className.replace('show ', ''); }, 3200);
+    }
 
-                    // Initialize SortableJS
-                    Sortable.create(document.getElementById('services-container'), { handle: '.drag-handle', animation: 150 });
-                    Sortable.create(document.getElementById('stats-container'), { handle: '.drag-handle', animation: 150 });
-                    Sortable.create(document.getElementById('projects-container'), { handle: '.drag-handle', animation: 150 });
+    function switchTab(id) {
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        event.currentTarget.classList.add('active');
 
-                    // Initialize Character Counters
-                    document.querySelectorAll('input[maxlength]').forEach(input => {
-                        const counter = document.createElement('span');
-                        counter.className = 'char-counter';
-                        const max = input.getAttribute('maxlength');
-                        input.parentNode.appendChild(counter);
+        if (id === 'tab-clients') loadClients();
+        if (id === 'tab-templates') loadTemplates();
+        if (id === 'tab-memos') loadMemos();
+    }
 
-                        const updateCounter = () => {
-                            const len = input.value.length;
-                            counter.textContent = `${len} / ${max}`;
-                            counter.className = 'char-counter ' + (len >= max ? 'danger' : len >= max * 0.8 ? 'warning' : '');
-                        };
-                        input.addEventListener('input', updateCounter);
-                        // Store the function so we can call it after data loads
-                        input.updateCounter = updateCounter;
-                    });
+    function typeColor(t) {
+        const map = { transactional: '#3498db', notification: '#f39c12', marketing: '#9b59b6', internal: '#45a29e', auto_reply: '#2ecc71' };
+        return map[t] || '#666';
+    }
 
-                    loadData();
-                    // Load user ID for the Live Site button
-                    fetch('/api/me')
-                        .then(res => res.json())
-                        .then(userData => {
-                            if(userData.user_id) {
-                                document.getElementById('live-site-link').href = `/index.html?user_id=${userData.user_id}`;
-                            }
-                        });
-                }
-            })
-            .catch(() => window.location.href = '/login.html');
+    // ─────────────────────────────────────────────────────────────
+    // SESSION CHECK & INIT
+    // ─────────────────────────────────────────────────────────────
+    fetch('/api/verify-session')
+        .then(r => { if (!r.ok) window.location.href = '/login.html'; return r.json(); })
+        .then(d => {
+            if (!d || !d.success) { window.location.href = '/login.html'; return; }
+            document.getElementById('main-admin').style.display = 'block';
 
-        function loadData() {
-            fetch('/api/admin-data')
-                .then(res => res.json())
-                .then(matrix => {
-                    fullMatrix = matrix;
-                    populateForm(fullMatrix.draft[currentLang]);
-                });
-        }
-
-        function populateForm(data) {
-            existingData = data;
-            
-            document.getElementById('brandName').value = data.brand.name || '';
-            if (document.getElementById('adminEmail')) document.getElementById('adminEmail').value = data.brand.adminEmail || '';
-            
-            // Generate Form Key if missing
-            let key = data.brand.formKey;
-            if (!key) {
-                key = 'key_' + Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
-                data.brand.formKey = key; // ensure it is part of the state
-            }
-            if (document.getElementById('formKey')) document.getElementById('formKey').value = key;
-
-            document.getElementById('heroTagline').value = data.hero.tagline || '';
-            document.getElementById('heroHeadline').value = data.hero.headline || '';
-            heroQuill.root.innerHTML = data.hero.subtext || '';
-            document.getElementById('heroBgUrl').value = data.hero.bgImage || '';
-
-            // Trigger character counters to update visually
-            document.querySelectorAll('input[maxlength]').forEach(input => {
-                if(input.updateCounter) input.updateCounter();
+            commQuill = new Quill('#commBodyEditor', {
+                theme: 'snow',
+                modules: { toolbar: [['bold', 'italic', 'underline'], [{ header: 1 }, { header: 2 }], ['link', 'image']] }
+            });
+            memoQuill = new Quill('#memoEditor', {
+                theme: 'snow', modules: { toolbar: [['bold', 'italic', 'underline']] }
+            });
+            tmplQuill = new Quill('#tmplBodyEditor', {
+                theme: 'snow',
+                modules: { toolbar: [['bold', 'italic', 'underline'], [{ header: 1 }, { header: 2 }], ['link'], [{ color: [] }], ['code-block']] }
             });
 
-            document.getElementById('services-container').innerHTML = '';
-            document.getElementById('stats-container').innerHTML = '';
-            document.getElementById('projects-container').innerHTML = '';
-            document.getElementById('forms-container').innerHTML = '';
+            loadMemos();
+            pollVitals();
+            setInterval(pollVitals, 6000);
+        })
+        .catch(() => window.location.href = '/login.html');
 
-            if(data.servicesSection && data.servicesSection.items) {
-                data.servicesSection.items.forEach(service => addServiceToForm(service));
-            }
-            if(data.stats) {
-                data.stats.forEach(stat => addStatToForm(stat));
-            }
-            if(data.projectsSection && data.projectsSection.items) {
-                data.projectsSection.items.forEach(proj => addProjectToForm(proj));
-            }
-            if(data.forms) {
-                data.forms.forEach(form => addFormToBuilder(form));
-            }
-            
-            updateInboxSelect();
-            refreshMediaVault();
-        }
+    // ─────────────────────────────────────────────────────────────
+    // HUD VITALS
+    // ─────────────────────────────────────────────────────────────
+    function pollVitals() {
+        fetch('/api/system/health').then(r => r.json()).then(v => {
+            if (!v.success) return;
+            document.getElementById('health-mem').textContent = v.memory;
+            document.getElementById('health-cpu').textContent = v.loadAverage;
+            document.getElementById('health-uptime').textContent = v.uptime;
+        }).catch(() => {});
 
-        document.getElementById('lang-select').addEventListener('change', (e) => {
-            fullMatrix.draft[currentLang] = collectFormData();
-            currentLang = e.target.value;
-            populateForm(fullMatrix.draft[currentLang]);
+        fetch('/api/analytics').then(r => r.json()).then(a => {
+            if (!a.success) return;
+            document.getElementById('analytics-emails').textContent = a.totalEmailsSent;
+        }).catch(() => {});
+
+        // Count active clients from registry
+        fetch('/api/clients').then(r => r.json()).then(d => {
+            if (!d.success) return;
+            document.getElementById('analytics-clients').textContent = d.clients.filter(c => c.active).length;
+        }).catch(() => {});
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // BROADCAST TAB
+    // ─────────────────────────────────────────────────────────────
+    document.getElementById('send-comm-btn').addEventListener('click', () => {
+        const recipient = document.getElementById('commRecipient').value.trim();
+        const subject = document.getElementById('commSubject').value.trim();
+        const message = commQuill.root.innerHTML;
+        if (!recipient || !subject || message === '<p><br></p>') return showToast('All fields are required', 'error');
+
+        const btn = document.getElementById('send-comm-btn');
+        btn.disabled = true; btn.textContent = 'Sending...';
+
+        const fd = new FormData();
+        fd.append('recipient', recipient); fd.append('subject', subject); fd.append('message', message);
+        fetch('/api/send-message?lang=en', { method: 'POST', body: fd })
+            .then(r => r.json()).then(d => {
+                btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Send Broadcast';
+                if (d.success) { showToast('Broadcast sent!'); document.getElementById('commSubject').value = ''; commQuill.root.innerHTML = ''; }
+                else showToast('Failed: ' + d.message, 'error');
+            });
+    });
+
+    // ─────────────────────────────────────────────────────────────
+    // CLIENTS TAB
+    // ─────────────────────────────────────────────────────────────
+    function loadClients() {
+        fetch('/api/clients').then(r => r.json()).then(d => {
+            if (!d.success) return;
+            const wrap = document.getElementById('clients-table-wrap');
+            if (!d.clients.length) { wrap.innerHTML = '<p style="color:#666;">No clients registered yet.</p>'; return; }
+
+            wrap.innerHTML = `<table class="data-table">
+                <thead><tr>
+                    <th>Client</th><th>Domain</th><th>Quota</th><th>Types</th><th>Status</th><th>Actions</th>
+                </tr></thead>
+                <tbody>${d.clients.map(c => `
+                    <tr>
+                        <td><strong style="color:#fff;">${c.client_name}</strong><br><code style="font-size:0.7rem;color:#666;">${c.client_id}</code></td>
+                        <td style="color:#a0a0a0;">${c.domain}</td>
+                        <td>${c.daily_quota}/day</td>
+                        <td>${(c.allowed_message_types||[]).map(t => `<span class="badge badge-type" style="border-color:${typeColor(t)};color:${typeColor(t)};">${t}</span>`).join('')}</td>
+                        <td><span class="badge ${c.active ? 'badge-active' : 'badge-inactive'}">${c.active ? 'Active' : 'Inactive'}</span></td>
+                        <td>
+                            <button class="btn btn-sm btn-warn" onclick="rotateSecret('${c.client_id}')"><i class="fa-solid fa-rotate"></i> Rotate</button>
+                            ${c.active
+                                ? `<button class="btn btn-sm btn-danger" onclick="deactivateClient('${c.client_id}')"><i class="fa-solid fa-ban"></i> Deactivate</button>`
+                                : `<button class="btn btn-sm btn-ghost" onclick="activateClient('${c.client_id}')"><i class="fa-solid fa-check"></i> Activate</button>`
+                            }
+                        </td>
+                    </tr>`).join('')}
+                </tbody></table>`;
         });
+    }
 
-        function showToast(message, type = 'success') {
-            const toast = document.getElementById('toast');
-            toast.textContent = message;
-            toast.className = 'show ' + type;
-            setTimeout(() => { toast.className = toast.className.replace('show', ''); }, 3000);
-        }
+    document.getElementById('register-client-btn').addEventListener('click', () => {
+        const client_name = document.getElementById('reg-name').value.trim();
+        const domain = document.getElementById('reg-domain').value.trim();
+        const daily_quota = parseInt(document.getElementById('reg-quota').value) || 500;
+        const allowed_message_types = Array.from(document.querySelectorAll('.msg-type-check:checked')).map(el => el.value);
 
-        // FUNCTION: Load asset bank data from server storage and build library UI
-        function refreshMediaVault() {
-            const vaultContainer = document.getElementById('system-media-vault');
-            if (!vaultContainer) return;
+        if (!client_name || !domain) return showToast('Name and domain are required', 'error');
 
-            fetch('/api/media')
-                .then(res => res.json())
-                .then(data => {
-                    if (!data.success) return;
-                    
-                    vaultContainer.innerHTML = ''; // Clear prior render states
-                    
-                    if (data.media.length === 0) {
-                        vaultContainer.innerHTML = `<p style="grid-column: 1/-1; color: #555; font-size: 0.8rem; text-align: center; margin: 20px 0;">No system files found. Upload your first asset above.</p>`;
-                        return;
-                    }
+        fetch('/api/clients/register', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ client_name, domain, allowed_message_types, daily_quota })
+        }).then(r => r.json()).then(d => {
+            if (d.success) {
+                showToast(`Client '${d.client_id}' registered!`, 'success');
+                lastRevealedSecret = d.secret;
+                document.getElementById('reveal-client-id').textContent = d.client_id;
+                document.getElementById('reveal-secret').textContent = d.secret;
+                document.getElementById('new-client-reveal').style.display = 'block';
+                document.getElementById('reg-name').value = '';
+                document.getElementById('reg-domain').value = '';
+                loadClients();
+            } else {
+                showToast(d.message, 'error');
+            }
+        });
+    });
 
-                    const currentActiveUrl = document.getElementById('heroBgUrl').value;
+    function copySecret() {
+        navigator.clipboard.writeText(lastRevealedSecret).then(() => showToast('Secret copied to clipboard', 'info'));
+    }
 
-                    data.media.forEach(url => {
-                        const card = document.createElement('div');
-                        card.className = `media-thumb-card ${currentActiveUrl === url ? 'selected' : ''}`;
-                        card.innerHTML = `
-                            <img src="${url}" alt="Server Asset">
-                            <button type="button" class="delete-asset-btn" title="Archive Asset"><i class="fa-solid fa-trash"></i></button>
-                        `;
-                        
-                        card.addEventListener('click', function() {
-                            document.querySelectorAll('.media-thumb-card').forEach(c => c.classList.remove('selected'));
-                            card.classList.add('selected');
-                            
-                            document.getElementById('heroBgUrl').value = url;
-                            showToast('Existing asset linked from cloud library!', 'success');
-                        });
+    function rotateSecret(id) {
+        if (!confirm(`Rotate secret for '${id}'? The current secret will stop working immediately.`)) return;
+        fetch(`/api/clients/${id}/rotate-secret`, { method: 'POST' }).then(r => r.json()).then(d => {
+            if (d.success) {
+                showToast('Secret rotated!', 'success');
+                lastRevealedSecret = d.secret;
+                document.getElementById('reveal-client-id').textContent = d.client_id;
+                document.getElementById('reveal-secret').textContent = d.secret;
+                document.getElementById('new-client-reveal').style.display = 'block';
+                loadClients();
+            } else showToast(d.message, 'error');
+        });
+    }
 
-                        const deleteBtn = card.querySelector('.delete-asset-btn');
-                        deleteBtn.addEventListener('click', function(e) {
-                            e.stopPropagation();
-                            if(confirm("Are you sure you want to remove this asset?")) {
-                                fetch('/api/delete-media', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ url: url })
-                                })
-                                .then(res => res.json())
-                                .then(data => {
-                                    if(data.success) {
-                                        showToast('Asset archived successfully!', 'success');
-                                        refreshMediaVault();
-                                        if (document.getElementById('heroBgUrl').value === url) {
-                                            document.getElementById('heroBgUrl').value = '';
-                                        }
-                                    } else {
-                                        showToast('Failed to archive asset.', 'error');
-                                    }
-                                });
-                            }
-                        });
+    function deactivateClient(id) {
+        if (!confirm(`Deactivate '${id}'? All dispatch calls from this client will be rejected.`)) return;
+        fetch(`/api/clients/${id}/deactivate`, { method: 'POST' }).then(r => r.json()).then(d => {
+            if (d.success) { showToast(`'${id}' deactivated.`); loadClients(); }
+            else showToast(d.message, 'error');
+        });
+    }
 
-                        vaultContainer.appendChild(card);
-                    });
-                });
-        }
+    function activateClient(id) {
+        fetch(`/api/clients/${id}/activate`, { method: 'POST' }).then(r => r.json()).then(d => {
+            if (d.success) { showToast(`'${id}' reactivated.`, 'success'); loadClients(); }
+            else showToast(d.message, 'error');
+        });
+    }
 
-        function addServiceToForm(service = { icon: 'fa-solid fa-star', title: '', desc: '' }) {
-            const container = document.getElementById('services-container');
-            const div = document.createElement('div');
-            div.className = 'dynamic-item';
-            const editorId = 'svcDesc_' + Math.random().toString(36).substr(2, 9);
-            
-            div.innerHTML = `
-                <i class="fa-solid fa-grip-vertical drag-handle"></i>
-                <button type="button" class="remove-btn" onclick="this.parentElement.remove()">Remove</button>
-                <div class="form-group"><label>Icon (FontAwesome class)</label><input type="text" class="svc-icon" value="${service.icon}" required></div>
-                <div class="form-group"><label>Title</label><input type="text" class="svc-title" value="${service.title}" required maxlength="40"></div>
-                <div class="form-group"><label>Description</label><div id="${editorId}" class="svc-desc" style="height: 100px;">${service.desc}</div></div>
-            `;
-            container.appendChild(div);
-            
-            const q = new Quill(`#${editorId}`, { theme: 'snow', modules: { toolbar: [['bold', 'italic']] } });
-            div.quillInstance = q;
-        }
+    // ─────────────────────────────────────────────────────────────
+    // TEMPLATES TAB
+    // ─────────────────────────────────────────────────────────────
+    const TYPE_LABELS = {
+        transactional: 'Transactional', notification: 'Notification',
+        marketing: 'Marketing', internal: 'Internal', auto_reply: 'Auto Reply'
+    };
 
-        document.getElementById('add-service-btn').addEventListener('click', () => addServiceToForm());
+    function loadTemplates() {
+        fetch('/api/templates').then(r => r.json()).then(d => {
+            if (!d.success) return;
+            const wrap = document.getElementById('template-grid-wrap');
+            const tmpls = Object.values(d.templates);
+            if (!tmpls.length) { wrap.innerHTML = '<p style="color:#666;">No templates yet.</p>'; return; }
 
-        function addStatToForm(stat = { icon: 'fa-solid fa-chart-line', value: '', label: '' }) {
-            const container = document.getElementById('stats-container');
-            const div = document.createElement('div');
-            div.className = 'dynamic-item';
-            div.innerHTML = `
-                <i class="fa-solid fa-grip-vertical drag-handle"></i>
-                <button type="button" class="remove-btn" onclick="this.parentElement.remove()">Remove</button>
-                <div class="form-group"><label>Icon (FontAwesome)</label><input type="text" class="stat-icon" value="${stat.icon}" required></div>
-                <div class="form-group"><label>Value</label><input type="text" class="stat-val" value="${stat.value}" required maxlength="10"></div>
-                <div class="form-group"><label>Label</label><input type="text" class="stat-label" value="${stat.label}" required maxlength="30"></div>
-            `;
-            container.appendChild(div);
-        }
-        document.getElementById('add-stat-btn').addEventListener('click', () => addStatToForm());
-
-        function addProjectToForm(proj = { image: '', title: '', location: '', class: 'card-bot-mid' }) {
-            const container = document.getElementById('projects-container');
-            const div = document.createElement('div');
-            div.className = 'dynamic-item';
-            
-            const fileId = 'projFile_' + Math.random().toString(36).substr(2, 9);
-            
-            div.innerHTML = `
-                <i class="fa-solid fa-grip-vertical drag-handle"></i>
-                <button type="button" class="remove-btn" onclick="this.parentElement.remove()">Remove</button>
-                <div class="form-group">
-                    <label>Project Image Upload</label>
-                    <input type="file" id="${fileId}" accept="image/*">
-                    <input type="hidden" class="proj-img" value="${proj.image}">
-                    <span class="help-text">Upload an image for this project.</span>
-                </div>
-                <div class="form-group"><label>Title</label><input type="text" class="proj-title" value="${proj.title}" required></div>
-                <div class="form-group"><label>Location</label><input type="text" class="proj-location" value="${proj.location}" required></div>
-                <div class="form-group"><label>Layout Class (card-large-left, card-top-mid, card-bot-mid, card-large-right)</label><input type="text" class="proj-class" value="${proj.class}" required></div>
-            `;
-            container.appendChild(div);
-
-            document.getElementById(fileId).addEventListener('change', function(e) {
-                const file = e.target.files[0];
-                if (!file) return;
-                const statusSpan = div.querySelector('.help-text');
-                const hiddenInput = div.querySelector('.proj-img');
-                
-                statusSpan.textContent = "Uploading...";
-                const formData = new FormData();
-                formData.append('image', file);
-
-                fetch('/api/upload-image', { method: 'POST', body: formData })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        hiddenInput.value = data.imageUrl;
-                        statusSpan.textContent = "Uploaded successfully!";
-                        statusSpan.style.color = "green";
-                    } else {
-                        statusSpan.textContent = "Upload failed.";
-                        statusSpan.style.color = "red";
-                    }
-                });
-            });
-        }
-        document.getElementById('add-project-btn').addEventListener('click', () => addProjectToForm());
-
-        // --- FORM BUILDER LOGIC ---
-        function addFormToBuilder(form = { id: 'form_' + Date.now(), title: '', fields: [] }) {
-            const container = document.getElementById('forms-container');
-            const div = document.createElement('div');
-            div.className = 'dynamic-item form-item';
-            div.dataset.id = form.id;
-            
-            let fieldsHtml = '';
-            form.fields.forEach(f => {
-                fieldsHtml += `
-                    <div class="form-field-row" style="display: flex; gap: 10px; margin-bottom: 10px; align-items: center;">
-                        <input type="text" class="f-label" value="${f.label}" placeholder="Label (e.g. Email)">
-                        <select class="f-type" style="padding: 10px; border-radius: 4px; background: #333; color: white; border: 1px solid #555;">
-                            <option value="text" ${f.type === 'text' ? 'selected' : ''}>Short Text</option>
-                            <option value="email" ${f.type === 'email' ? 'selected' : ''}>Email</option>
-                            <option value="textarea" ${f.type === 'textarea' ? 'selected' : ''}>Paragraph</option>
-                        </select>
-                        <button type="button" class="btn" style="background:#e74c3c; padding:10px;" onclick="this.parentElement.remove(); updateInboxSelect();"><i class="fa-solid fa-trash"></i></button>
+            wrap.innerHTML = `<div class="template-grid">${tmpls.map(t => `
+                <div class="template-card">
+                    <div class="template-card-name">${t.name}</div>
+                    <div class="template-card-id">${t.id}</div>
+                    <span class="badge" style="background:${typeColor(t.message_type)}22;color:${typeColor(t.message_type)};">${TYPE_LABELS[t.message_type] || t.message_type}</span>
+                    <div class="template-card-actions">
+                        <button class="btn btn-sm btn-ghost" onclick="editTemplate('${t.id}')"><i class="fa-solid fa-pen"></i> Edit</button>
+                        <button class="btn btn-sm btn-warn" onclick="testTemplate('${t.id}')"><i class="fa-solid fa-flask"></i> Test</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteTemplate('${t.id}')"><i class="fa-solid fa-trash"></i></button>
                     </div>
-                `;
-            });
-
-            div.innerHTML = `
-                <button type="button" class="remove-btn" onclick="this.parentElement.remove(); updateInboxSelect();">Remove Form</button>
-                <div class="form-group">
-                    <label>Form Title</label>
-                    <input type="text" class="form-title" value="${form.title}" oninput="updateInboxSelect()" required>
-                </div>
-                <div class="form-group">
-                    <label>Fields</label>
-                    <div class="fields-list">${fieldsHtml}</div>
-                    <button type="button" class="btn btn-secondary add-field-btn">+ Add Field</button>
-                </div>
-            `;
-            
-            div.querySelector('.add-field-btn').addEventListener('click', () => {
-                const fieldsList = div.querySelector('.fields-list');
-                const row = document.createElement('div');
-                row.className = 'form-field-row';
-                row.style.cssText = "display: flex; gap: 10px; margin-bottom: 10px; align-items: center;";
-                row.innerHTML = `
-                    <input type="text" class="f-label" placeholder="Label (e.g. Email)">
-                    <select class="f-type" style="padding: 10px; border-radius: 4px; background: #333; color: white; border: 1px solid #555;">
-                        <option value="text">Short Text</option>
-                        <option value="email">Email</option>
-                        <option value="textarea">Paragraph</option>
-                    </select>
-                    <button type="button" class="btn" style="background:#e74c3c; padding:10px;" onclick="this.parentElement.remove()"><i class="fa-solid fa-trash"></i></button>
-                `;
-                fieldsList.appendChild(row);
-            });
-            
-            container.appendChild(div);
-            updateInboxSelect();
-        }
-        document.getElementById('add-form-btn').addEventListener('click', () => addFormToBuilder());
-
-        // --- INBOX LOGIC ---
-        function updateInboxSelect() {
-            const select = document.getElementById('inbox-select');
-            const currentSelection = select.value;
-            select.innerHTML = '<option value="">-- Select Form --</option>';
-            const formItems = Array.from(document.querySelectorAll('#forms-container .form-item')).map(item => ({
-                id: item.dataset.id, title: item.querySelector('.form-title').value
-            }));
-            formItems.forEach(f => {
-                if(f.title) select.innerHTML += `<option value="${f.id}" ${f.id === currentSelection ? 'selected' : ''}>${f.title}</option>`;
-            });
-        }
-
-        document.getElementById('inbox-select').addEventListener('change', (e) => {
-            const formId = e.target.value;
-            const container = document.getElementById('inbox-container');
-            const exportBtn = document.getElementById('export-csv-btn');
-            
-            if(!formId) {
-                container.innerHTML = '<p style="color: #777;">Select a form to view its leads.</p>';
-                exportBtn.style.display = 'none';
-                return;
-            }
-            
-            const responses = (fullMatrix.draft[currentLang].responses || {})[formId] || [];
-            if(responses.length === 0) {
-                container.innerHTML = '<p style="color: #777;">No responses found for this form.</p>';
-                exportBtn.style.display = 'none';
-                return;
-            }
-            
-            const currentFormData = collectFormData();
-            const activeForm = (currentFormData.forms || []).find(f => f.id === formId);
-            const headers = ['Date', ...(activeForm ? activeForm.fields.map(f => f.label) : [])];
-            
-            let html = '<table style="width:100%; border-collapse: collapse; margin-top:15px; color: white;"><tr>';
-            headers.forEach(h => html += `<th style="padding:10px; background:#252627; border:1px solid #333; text-align:left;">${h}</th>`);
-            html += '</tr>';
-            
-            responses.forEach(resp => {
-                const date = new Date(resp.timestamp).toLocaleString();
-                html += `<tr><td style="padding:10px; border:1px solid #333;">${date}</td>`;
-                if(activeForm) {
-                    activeForm.fields.forEach(f => {
-                        const val = resp.data[f.label] || '';
-                        html += `<td style="padding:10px; border:1px solid #333;">${val}</td>`;
-                    });
-                }
-                html += '</tr>';
-            });
-            html += '</table>';
-            
-            container.innerHTML = html;
-            exportBtn.style.display = 'inline-block';
-            exportBtn.dataset.formid = formId;
+                </div>`).join('')}
+            </div>`;
         });
+    }
 
-        document.getElementById('export-csv-btn').addEventListener('click', (e) => {
-            const formId = e.target.dataset.formid;
-            const currentFormData = collectFormData();
-            const activeForm = (currentFormData.forms || []).find(f => f.id === formId);
-            const responses = (fullMatrix.draft[currentLang].responses || {})[formId] || [];
-            
-            let csv = 'Date,' + (activeForm ? activeForm.fields.map(f => `"${f.label}"`).join(',') : '') + '\n';
-            responses.forEach(resp => {
-                csv += `"${new Date(resp.timestamp).toLocaleString()}",`;
-                if(activeForm) {
-                    csv += activeForm.fields.map(f => `"${(resp.data[f.label] || '').replace(/"/g, '""')}"`).join(',');
-                }
-                csv += '\n';
-            });
-            
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.setAttribute('href', url);
-            a.setAttribute('download', `${activeForm.title.replace(/\s+/g, '_')}_Leads.csv`);
-            a.click();
+    function insertVar(varName) {
+        const range = tmplQuill.getSelection(true);
+        tmplQuill.insertText(range.index, `{{${varName}}}`);
+        tmplQuill.setSelection(range.index + varName.length + 4);
+    }
+
+    function editTemplate(id) {
+        fetch('/api/templates').then(r => r.json()).then(d => {
+            const t = d.templates[id];
+            if (!t) return;
+            document.getElementById('tmpl-id').value = t.id;
+            document.getElementById('tmpl-name').value = t.name;
+            document.getElementById('tmpl-type').value = t.message_type;
+            document.getElementById('tmpl-subject').value = t.subject;
+            tmplQuill.root.innerHTML = t.html;
+            document.getElementById('template-form-title').textContent = `Edit: ${t.name}`;
+            document.getElementById('tmpl-editing-id').value = t.id;
+            document.getElementById('save-template-btn').innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Update Template';
+            // Scroll to form
+            document.getElementById('save-template-btn').scrollIntoView({ behavior: 'smooth', block: 'center' });
         });
+    }
 
-        // --- IMAGE UPLOAD LOGIC ---
-        document.getElementById('heroBgFile').addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-            
-            document.getElementById('heroBgStatus').textContent = "Uploading...";
-            const formData = new FormData();
-            formData.append('image', file);
+    document.getElementById('clear-template-btn').addEventListener('click', () => {
+        document.getElementById('tmpl-id').value = '';
+        document.getElementById('tmpl-name').value = '';
+        document.getElementById('tmpl-type').value = 'transactional';
+        document.getElementById('tmpl-subject').value = '';
+        tmplQuill.root.innerHTML = '';
+        document.getElementById('template-form-title').textContent = 'Create New Template';
+        document.getElementById('save-template-btn').innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Template';
+    });
 
-            fetch('/api/upload-image', {
-                method: 'POST',
-                body: formData
-            })
-            .then(res => res.json())
-            .then(data => {
-                if(data.success) {
-                    document.getElementById('heroBgUrl').value = data.imageUrl;
-                    document.getElementById('heroBgStatus').textContent = 'Upload complete! Image saved to cloud.';
-                    document.getElementById('heroBgStatus').style.color = '#2ecc71';
-                    showToast('Image uploaded and linked successfully!', 'success');
-                    refreshMediaVault();
-                } else {
-                    document.getElementById('heroBgStatus').textContent = 'Upload failed: ' + data.message;
-                    document.getElementById('heroBgStatus').style.color = '#e74c3c';
-                }
-            })
-            .catch(err => console.error(err));
+    document.getElementById('save-template-btn').addEventListener('click', () => {
+        const id = document.getElementById('tmpl-id').value.trim().replace(/\s+/g, '_').toLowerCase();
+        const name = document.getElementById('tmpl-name').value.trim();
+        const message_type = document.getElementById('tmpl-type').value;
+        const subject = document.getElementById('tmpl-subject').value.trim();
+        const html = tmplQuill.root.innerHTML;
+
+        if (!id || !name || !subject || html === '<p><br></p>') return showToast('All template fields are required', 'error');
+
+        fetch('/api/templates', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id, name, message_type, subject, html })
+        }).then(r => r.json()).then(d => {
+            if (d.success) { showToast('Template saved!', 'success'); loadTemplates(); document.getElementById('clear-template-btn').click(); }
+            else showToast(d.message, 'error');
         });
+    });
 
-        // --- SUBMISSION LOGIC ---
-        function collectFormData() {
-            const serviceItems = Array.from(document.querySelectorAll('#services-container .dynamic-item')).map(item => ({
-                icon: item.querySelector('.svc-icon').value,
-                title: item.querySelector('.svc-title').value,
-                desc: item.quillInstance.root.innerHTML
-            }));
+    function testTemplate(id) {
+        showToast(`Sending test email for '${id}'...`, 'info');
+        fetch(`/api/templates/${id}/test`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ variables: { name: 'Test User', brand_name: 'TM Savannah', otp_code: '123456', expires_in: '5 minutes', response_time: '24 hours', reference_id: 'TEST-001', timestamp: new Date().toLocaleString(), headline: 'Test Headline', body: 'This is a test email body.', cta_url: '#', cta_label: 'Click Here', unsubscribe_url: '#', memo_id: 'MEMO-001', author: 'Admin', date: new Date().toLocaleDateString(), subject_line: 'Test Memo', content: 'Test memo content.', alert_title: 'Test Alert', alert_body: 'This is a test alert.' } }) })
+            .then(r => r.json()).then(d => showToast(d.message, d.success ? 'success' : 'error'));
+    }
 
-            const statItems = Array.from(document.querySelectorAll('#stats-container .dynamic-item')).map(item => ({
-                icon: item.querySelector('.stat-icon').value,
-                value: item.querySelector('.stat-val').value,
-                label: item.querySelector('.stat-label').value
-            }));
-
-            const projectItems = Array.from(document.querySelectorAll('#projects-container .dynamic-item')).map(item => ({
-                image: item.querySelector('.proj-img').value,
-                title: item.querySelector('.proj-title').value,
-                location: item.querySelector('.proj-location').value,
-                class: item.querySelector('.proj-class').value
-            }));
-
-            const formItems = Array.from(document.querySelectorAll('#forms-container .form-item')).map(item => {
-                const id = item.dataset.id;
-                const title = item.querySelector('.form-title').value;
-                const fields = Array.from(item.querySelectorAll('.form-field-row')).map(row => ({
-                    label: row.querySelector('.f-label').value,
-                    type: row.querySelector('.f-type').value
-                }));
-                return { id, title, fields };
-            });
-
-            return {
-                ...existingData,
-                brand: {
-                    ...existingData.brand,
-                    name: document.getElementById('brandName').value,
-                    adminEmail: document.getElementById('adminEmail') ? document.getElementById('adminEmail').value : '',
-                    formKey: document.getElementById('formKey') ? document.getElementById('formKey').value : existingData.brand.formKey
-                },
-                hero: {
-                    ...existingData.hero,
-                    tagline: document.getElementById('heroTagline').value,
-                    headline: document.getElementById('heroHeadline').value,
-                    subtext: heroQuill.root.innerHTML,
-                    bgImage: document.getElementById('heroBgUrl').value
-                },
-                servicesSection: {
-                    ...existingData.servicesSection,
-                    items: serviceItems
-                },
-                stats: statItems,
-                projectsSection: {
-                    ...existingData.projectsSection,
-                    items: projectItems
-                },
-                forms: formItems
-            };
-        }
-
-        function submitForm(mode) {
-            const payload = collectFormData();
-            fullMatrix.draft[currentLang] = payload; 
-            
-            fetch('/api/save-data', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ mode: mode, lang: currentLang, payload: payload })
-            })
-            .then(res => {
-                if(res.status === 401 || res.status === 403) window.location.href = '/login.html';
-                return res.json();
-            })
-            .then(response => {
-                if(response.success) {
-                    showToast('Website updated instantly!', 'success');
-                } else {
-                    showToast('Server error: ' + response.message, 'error');
-                }
-            })
-            .catch(error => {
-                console.error('Error saving data:', error);
-                showToast('Failed to connect to the server.', 'error');
-            });
-        }
-
-        document.getElementById('save-draft-btn').addEventListener('click', () => submitForm('draft'));
-        document.getElementById('publish-live-btn').addEventListener('click', () => submitForm('publish'));
-
-        // --- BACKGROUND AUTO-SAVE ENGINE ---
-        let lastSavedPayloadString = "";
-
-        function configurationHasChanged(currentPayload) {
-            const currentString = JSON.stringify(currentPayload);
-            if (currentString !== lastSavedPayloadString) {
-                lastSavedPayloadString = currentString;
-                return true;
-            }
-            return false;
-        }
-
-        function triggerBackgroundAutoSave() {
-            const currentPayload = collectFormData();
-            const statusText = document.getElementById('autosave-status');
-
-            if (!configurationHasChanged(currentPayload)) return;
-
-            statusText.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Syncing staging draft automatically...`;
-            statusText.style.color = '#d0aa69';
-
-            fullMatrix.draft[currentLang] = currentPayload;
-            
-            fetch('/api/save-data', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ mode: 'draft', lang: currentLang, payload: currentPayload })
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    const now = new Date();
-                    const timeString = now.toTimeString().split(' ')[0];
-                    statusText.innerHTML = `<i class="fa-solid fa-cloud"></i> Draft auto-saved at ${timeString}`;
-                    statusText.style.color = '#2ecc71';
-                } else {
-                    statusText.textContent = "Background sync suspended: Connection lost.";
-                    statusText.style.color = '#e74c3c';
-                }
-            })
-            .catch(() => {
-                statusText.textContent = "Network error: Auto-save paused.";
-                statusText.style.color = '#e74c3c';
-            });
-        }
-
-        // Start checking loop 3 seconds after page loads
-        setTimeout(() => {
-            lastSavedPayloadString = JSON.stringify(collectFormData());
-            setInterval(triggerBackgroundAutoSave, 30000);
+    function deleteTemplate(id) {
+        if (!confirm(`Delete template '${id}'? This cannot be undone.`)) return;
+        fetch(`/api/templates/${id}`, { method: 'DELETE' }).then(r => r.json()).then(d => {
+            if (d.success) { showToast(`'${id}' deleted.`); loadTemplates(); }
+            else showToast(d.message, 'error');
         });
+    }
 
-        // --- LIVE SYSTEM VITALS POLLING ---
-        function pollSystemVitals() {
-            fetch('/api/system/health')
-                .then(res => res.json())
-                .then(vitals => {
-                    if (!vitals.success) return;
-                    document.getElementById('health-mem').textContent = vitals.memory;
-                    document.getElementById('health-cpu').textContent = vitals.loadAverage;
-                    document.getElementById('health-uptime').textContent = vitals.uptime;
-                })
-                .catch(() => console.log('Telemetry synchronization suspended.'));
-        }
-        
-        pollSystemVitals();
-        setInterval(pollSystemVitals, 5000);
+    // ─────────────────────────────────────────────────────────────
+    // MEMOS TAB
+    // ─────────────────────────────────────────────────────────────
+    function loadMemos() {
+        fetch('/api/admin-data').then(r => r.json()).then(matrix => {
+            fullData = matrix?.published?.en || {};
+            const list = document.getElementById('stamped-memos-list');
+            const memos = fullData.memos || [];
+            if (!memos.length) { list.innerHTML = '<p style="color:#666;">No memos stamped yet.</p>'; return; }
+            list.innerHTML = memos.map(m => `
+                <div style="margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid #1f2833;">
+                    <strong style="color:#66fcf1;">${m.id}</strong> &nbsp;by&nbsp; <span style="color:#c5c6c7;">${m.author}</span>
+                    <br><small style="color:#45a29e;">${new Date(m.timestamp).toLocaleString()}</small>
+                    <br><small style="color:#555;word-break:break-all;">Sig: ${m.signature}</small>
+                </div>`).join('');
+        }).catch(() => {});
+    }
 
-        // --- UI ENHANCEMENTS: Collapsible Sections ---
-        function initCollapsibles() {
-            const form = document.getElementById('cms-form');
-            const headers = Array.from(form.querySelectorAll('h3'));
-            
-            headers.forEach((h3, index) => {
-                const headerWrapper = document.createElement('div');
-                headerWrapper.className = 'collapsible-header' + (index === 0 ? ' active' : '');
-                
-                const newH3 = document.createElement('h3');
-                newH3.textContent = h3.textContent;
-                
-                const chevron = document.createElement('i');
-                chevron.className = 'fa-solid fa-chevron-down chevron';
-                
-                headerWrapper.appendChild(newH3);
-                headerWrapper.appendChild(chevron);
-                
-                const contentWrapper = document.createElement('div');
-                contentWrapper.className = 'collapsible-content' + (index === 0 ? ' active' : '');
-                
-                h3.parentNode.insertBefore(headerWrapper, h3);
-                h3.parentNode.insertBefore(contentWrapper, h3);
-                
-                let currentEl = h3.nextSibling;
-                while (currentEl) {
-                    let nextEl = currentEl.nextSibling;
-                    // Stop if we hit the next h3
-                    if (currentEl.tagName === 'H3') break;
-                    // Stop if we hit the buttons container (contains the save buttons)
-                    if (currentEl.tagName === 'DIV' && currentEl.querySelector && currentEl.querySelector('#save-draft-btn')) break;
-                    
-                    contentWrapper.appendChild(currentEl);
-                    currentEl = nextEl;
-                }
-                
-                h3.remove();
-                
-                headerWrapper.addEventListener('click', () => {
-                    const isActive = headerWrapper.classList.contains('active');
-                    if (!isActive) {
-                        headerWrapper.classList.add('active');
-                        contentWrapper.classList.add('active');
-                    } else {
-                        headerWrapper.classList.remove('active');
-                        contentWrapper.classList.remove('active');
-                    }
-                });
-            });
-        }
-        
-        document.addEventListener('DOMContentLoaded', initCollapsibles);
+    document.getElementById('stamp-memo-btn').addEventListener('click', () => {
+        const id = document.getElementById('memoId').value.trim();
+        const author = document.getElementById('memoAuthor').value.trim();
+        const content = memoQuill.root.innerHTML;
+        if (!id || !author || content === '<p><br></p>') return showToast('Fill all memo fields', 'error');
+        fetch('/api/memos/stamp', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id, author, content, lang: 'en' })
+        }).then(r => r.json()).then(d => {
+            if (d.success) { showToast('Memo stamped!', 'success'); document.getElementById('memoId').value = ''; document.getElementById('memoAuthor').value = ''; memoQuill.root.innerHTML = ''; loadMemos(); }
+            else showToast(d.message, 'error');
+        });
+    });
+
+    // ─────────────────────────────────────────────────────────────
+    // LOGOUT
+    // ─────────────────────────────────────────────────────────────
+    document.getElementById('logout-btn').addEventListener('click', () => {
+        fetch('/api/logout', { method: 'POST' }).then(() => window.location.href = '/login.html');
+    });
 
     </script>
 </body>

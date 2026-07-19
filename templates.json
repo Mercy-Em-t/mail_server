@@ -1,0 +1,62 @@
+{
+  "welcome_email": {
+    "id": "welcome_email",
+    "name": "Welcome Email",
+    "message_type": "transactional",
+    "subject": "Welcome to {{brand_name}}!",
+    "html": "<div style=\"font-family:Inter,sans-serif;max-width:600px;margin:0 auto;background:#f9f9f9;padding:32px;border-radius:8px\"><h1 style=\"color:#1a1a2e;font-size:24px\">Welcome, {{name}}!</h1><p style=\"color:#444;line-height:1.6\">You're now part of <strong>{{brand_name}}</strong>. We're excited to have you on board.</p><p style=\"color:#444\">{{message}}</p><a href=\"{{cta_url}}\" style=\"display:inline-block;margin-top:16px;padding:12px 24px;background:#66fcf1;color:#0b0c10;border-radius:4px;text-decoration:none;font-weight:600\">{{cta_label}}</a><hr style=\"margin:32px 0;border:none;border-top:1px solid #ddd\"><p style=\"font-size:12px;color:#999\">You received this email because you signed up for {{brand_name}}.</p></div>",
+    "variables": ["name", "brand_name", "message", "cta_url", "cta_label"],
+    "created_by": "admin",
+    "created_at": "2026-07-19"
+  },
+  "otp_email": {
+    "id": "otp_email",
+    "name": "OTP / Verification Code",
+    "message_type": "transactional",
+    "subject": "Your {{brand_name}} verification code",
+    "html": "<div style=\"font-family:Inter,sans-serif;max-width:600px;margin:0 auto;background:#f9f9f9;padding:32px;border-radius:8px\"><h2 style=\"color:#1a1a2e\">Verification Code</h2><p style=\"color:#444\">Hi {{name}}, use the code below to complete your action. It expires in <strong>{{expires_in}}</strong>.</p><div style=\"text-align:center;margin:32px 0\"><span style=\"font-size:40px;font-weight:700;letter-spacing:12px;color:#1a1a2e;background:#e8e8e8;padding:16px 32px;border-radius:8px\">{{otp_code}}</span></div><p style=\"color:#888;font-size:13px\">If you didn't request this, you can safely ignore this email.</p></div>",
+    "variables": ["name", "brand_name", "otp_code", "expires_in"],
+    "created_by": "admin",
+    "created_at": "2026-07-19"
+  },
+  "system_notification": {
+    "id": "system_notification",
+    "name": "System Notification",
+    "message_type": "notification",
+    "subject": "[{{brand_name}}] {{alert_title}}",
+    "html": "<div style=\"font-family:Inter,sans-serif;max-width:600px;margin:0 auto;background:#fff;padding:32px;border-left:4px solid #f39c12\"><h3 style=\"color:#e67e22;margin:0 0 12px\">{{alert_title}}</h3><p style=\"color:#444;line-height:1.6\">{{alert_body}}</p><p style=\"font-size:12px;color:#999;margin-top:24px\">Sent by {{brand_name}} System at {{timestamp}}</p></div>",
+    "variables": ["brand_name", "alert_title", "alert_body", "timestamp"],
+    "created_by": "admin",
+    "created_at": "2026-07-19"
+  },
+  "newsletter": {
+    "id": "newsletter",
+    "name": "Newsletter / Marketing",
+    "message_type": "marketing",
+    "subject": "{{headline}} — {{brand_name}}",
+    "html": "<div style=\"font-family:Inter,sans-serif;max-width:600px;margin:0 auto;background:#fff\"><div style=\"background:#1a1a2e;padding:24px;text-align:center\"><h1 style=\"color:#fff;margin:0;font-size:22px\">{{brand_name}}</h1></div><div style=\"padding:32px\"><h2 style=\"color:#1a1a2e\">{{headline}}</h2><p style=\"color:#444;line-height:1.7\">{{body}}</p><a href=\"{{cta_url}}\" style=\"display:inline-block;margin-top:24px;padding:12px 28px;background:#1a1a2e;color:#fff;border-radius:4px;text-decoration:none\">{{cta_label}}</a></div><div style=\"background:#f0f0f0;padding:16px;text-align:center;font-size:12px;color:#999\">{{brand_name}} &bull; <a href=\"{{unsubscribe_url}}\" style=\"color:#999\">Unsubscribe</a></div></div>",
+    "variables": ["brand_name", "headline", "body", "cta_url", "cta_label", "unsubscribe_url"],
+    "created_by": "admin",
+    "created_at": "2026-07-19"
+  },
+  "auto_reply": {
+    "id": "auto_reply",
+    "name": "Auto-Reply / Form Acknowledgement",
+    "message_type": "auto_reply",
+    "subject": "We received your message — {{brand_name}}",
+    "html": "<div style=\"font-family:Inter,sans-serif;max-width:600px;margin:0 auto;background:#f9f9f9;padding:32px;border-radius:8px\"><h2 style=\"color:#1a1a2e\">Thanks, {{name}}!</h2><p style=\"color:#444;line-height:1.6\">We received your message and our team will get back to you within <strong>{{response_time}}</strong>.</p><p style=\"color:#888;font-size:13px\">Reference ID: <code>{{reference_id}}</code></p><hr style=\"border:none;border-top:1px solid #ddd;margin:24px 0\"><p style=\"font-size:12px;color:#999\">This is an automated reply from {{brand_name}}. Please do not reply to this email.</p></div>",
+    "variables": ["name", "brand_name", "response_time", "reference_id"],
+    "created_by": "admin",
+    "created_at": "2026-07-19"
+  },
+  "internal_memo": {
+    "id": "internal_memo",
+    "name": "Internal Memo",
+    "message_type": "internal",
+    "subject": "[INTERNAL] {{memo_id}} — {{subject_line}}",
+    "html": "<div style=\"font-family:monospace;max-width:600px;margin:0 auto;background:#1a1a2e;color:#c5c6c7;padding:32px;border-radius:8px\"><div style=\"border-bottom:1px solid #45a29e;padding-bottom:16px;margin-bottom:16px\"><strong style=\"color:#66fcf1\">MEMO ID:</strong> {{memo_id}}<br><strong style=\"color:#66fcf1\">FROM:</strong> {{author}}<br><strong style=\"color:#66fcf1\">DATE:</strong> {{date}}<br><strong style=\"color:#66fcf1\">CLASSIFICATION:</strong> INTERNAL</div><p style=\"line-height:1.7\">{{content}}</p><hr style=\"border:none;border-top:1px solid #45a29e;margin:24px 0\"><p style=\"font-size:11px;color:#45a29e\">This message is intended only for authorized personnel of {{brand_name}}.</p></div>",
+    "variables": ["memo_id", "author", "date", "subject_line", "content", "brand_name"],
+    "created_by": "admin",
+    "created_at": "2026-07-19"
+  }
+}
