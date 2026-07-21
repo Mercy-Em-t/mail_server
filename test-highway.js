@@ -1,3 +1,4 @@
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 /**
  * test-highway.js — Multi-client connection protocol test
  *
@@ -28,13 +29,14 @@ async function run() {
     //    We'll read from clients.json directly or assume a test client was registered.
     //    For full automation, use the dashboard or add a test client to clients.json manually.
 
-    // ── Step 2: Use first registered client from clients.json
-    const fs = require('fs');
-    const clientsRaw = fs.readFileSync('./clients.json', 'utf8');
-    const { clients } = JSON.parse(clientsRaw);
+    // ── Step 2: Use first registered client from Supabase
+    const { createClient } = require('@supabase/supabase-js');
+    const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY);
+    
+    const { data: clients, error } = await supabase.from('mail_clients').select('*').limit(1);
 
-    if (!clients.length) {
-        console.log('❌ No clients registered. Open the dashboard → Clients tab → Register a client first.');
+    if (error || !clients || !clients.length) {
+        console.log('❌ No clients registered. Run the SQL script, then register a client via dashboard.');
         process.exit(1);
     }
 

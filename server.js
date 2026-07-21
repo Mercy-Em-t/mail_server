@@ -28,15 +28,18 @@ app.use((req, res, next) => {
     next();
 });
 
-// ACTIVITY LOGGER: Appends server events cleanly to a local history file
+// ACTIVITY LOGGER: Asynchronously logs to Supabase
 function logActivity(username, action, status = 'SUCCESS') {
-    const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
-    const logLine = `[${timestamp}] User: '${username}' | Action: ${action} | Status: ${status}\n`;
+    const timestamp = new Date().toISOString();
     
-    const logPath = path.join(__dirname, 'logs.txt');
-    
-    fs.appendFile(logPath, logLine, 'utf8', (err) => {
-        if (err) console.error('⚠️ Critical: Failed to write to system audit log:', err);
+    // Fire and forget insertion into Supabase
+    supabase.from('system_logs').insert([{
+        username: String(username),
+        action: action,
+        status: status,
+        timestamp: timestamp
+    }]).then(({ error }) => {
+        if (error) console.error('⚠️ Critical: Failed to write to system audit log:', error);
     });
 }
 
@@ -87,7 +90,7 @@ app.use(cookieParser());
 const renderStorefront = async (req, res) => {
     try {
         const userId = req.query.user_id;
-        const htmlPath = path.join(__dirname, 'index.html');
+        const htmlPath = path.join(__dirname, 'public', 'index.html');
         let htmlTemplate = fs.readFileSync(htmlPath, 'utf8');
 
         if(userId) {
@@ -102,15 +105,14 @@ const renderStorefront = async (req, res) => {
         res.send(htmlTemplate);
     } catch(err) {
         console.error('SSR Error:', err);
-        res.sendFile(path.join(__dirname, 'index.html'));
+        res.sendFile(path.join(__dirname, 'public', 'index.html'));
     }
 };
 
 app.get('/', renderStorefront);
 app.get('/index.html', renderStorefront);
-app.get('/index.html', renderStorefront);
 
-app.use(express.static(__dirname)); // Serve all other HTML files (admin, login, etc.)
+app.use(express.static(path.join(__dirname, 'public'))); // Serve all other HTML files (admin, login, etc.) from public dir
 
 // SECURITY MIDDLEWARE: Verifies Supabase session
 async function authenticateToken(req, res, next) {
@@ -224,33 +226,9 @@ app.post('/api/verify-otp', (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// MULTI-CLIENT REGISTRY HELPERS
+// MULTI-CLIENT REGISTRY HELPERS (Supabase)
 // ─────────────────────────────────────────────────────────────
 const jwt = require('jsonwebtoken');
-const CLIENTS_FILE = path.join(__dirname, 'clients.json');
-const TEMPLATES_FILE = path.join(__dirname, 'templates.json');
-
-function loadClients() {
-    try {
-        const raw = fs.readFileSync(CLIENTS_FILE, 'utf8');
-        return JSON.parse(raw).clients || [];
-    } catch { return []; }
-}
-
-function saveClients(clients) {
-    fs.writeFileSync(CLIENTS_FILE, JSON.stringify({ clients }, null, 2), 'utf8');
-}
-
-function loadTemplates() {
-    try {
-        const raw = fs.readFileSync(TEMPLATES_FILE, 'utf8');
-        return JSON.parse(raw) || {};
-    } catch { return {}; }
-}
-
-function saveTemplates(templates) {
-    fs.writeFileSync(TEMPLATES_FILE, JSON.stringify(templates, null, 2), 'utf8');
-}
 
 // Inject variables into a template string using {{variable}} syntax
 function renderTemplate(str, vars = {}) {
@@ -270,26 +248,30 @@ function verifyHighwayToken(req, res, next) {
         return res.status(401).json({ success: false, message: 'Token must include client_id in payload.' });
     }
 
-    const clients = loadClients();
-    const client = clients.find(c => c.client_id === unverified.client_id);
+    supabase.from('mail_clients').select('*').eq('client_id', unverified.client_id).single()
+        .then(({ data: client, error }) => {
+            if (error || !client) {
+                logActivity(unverified.client_id, 'HIGHWAY_ACCESS', 'FAILED_UNKNOWN_CLIENT');
+                return res.status(403).json({ success: false, message: 'Unknown client_id.' });
+            }
+            if (!client.active) {
+                logActivity(client.client_id, 'HIGHWAY_ACCESS', 'FAILED_DEACTIVATED');
+                return res.status(403).json({ success: false, message: 'Client account has been deactivated.' });
+            }
 
-    if (!client) {
-        logActivity(unverified.client_id, 'HIGHWAY_ACCESS', 'FAILED_UNKNOWN_CLIENT');
-        return res.status(403).json({ success: false, message: 'Unknown client_id.' });
-    }
-    if (!client.active) {
-        logActivity(client.client_id, 'HIGHWAY_ACCESS', 'FAILED_DEACTIVATED');
-        return res.status(403).json({ success: false, message: 'Client account has been deactivated.' });
-    }
-
-    try {
-        jwt.verify(token, client.secret);
-        req.highwayClient = client;
-        next();
-    } catch (err) {
-        logActivity(client.client_id, 'HIGHWAY_ACCESS', 'FAILED_INVALID_TOKEN');
-        return res.status(403).json({ success: false, message: 'Invalid or expired token.' });
-    }
+            try {
+                jwt.verify(token, client.secret);
+                req.highwayClient = client;
+                next();
+            } catch (err) {
+                logActivity(client.client_id, 'HIGHWAY_ACCESS', 'FAILED_INVALID_TOKEN');
+                return res.status(403).json({ success: false, message: 'Invalid or expired token.' });
+            }
+        })
+        .catch(err => {
+            console.error('Highway Auth DB Error:', err);
+            res.status(500).json({ success: false, message: 'Internal server error.' });
+        });
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -312,14 +294,15 @@ app.post('/api/dispatch', verifyHighwayToken, async (req, res) => {
 
     // ── Template resolution path ──
     if (template) {
-        const templates = loadTemplates();
-        const tmpl = templates[template];
-        if (!tmpl) {
+        const { data: tmpl, error } = await supabase.from('mail_templates').select('*').eq('id', template).single();
+        if (error || !tmpl) {
             return res.status(404).json({ success: false, message: `Template '${template}' not found. Use GET /api/templates to see available templates.` });
         }
         const vars = variables || {};
         finalSubject = renderTemplate(tmpl.subject, vars);
         finalHtml = renderTemplate(tmpl.html, vars);
+        // Inject message type from template if not overridden
+        if (!message_type) req.body.message_type = tmpl.message_type;
     }
 
     if (!to || !finalSubject) {
@@ -345,7 +328,7 @@ app.post('/api/dispatch', verifyHighwayToken, async (req, res) => {
             recipient: to,
             subject: finalSubject,
             template: template || null,
-            message_type: message_type || (template ? loadTemplates()[template]?.message_type : null),
+            message_type: req.body.message_type || null,
             timestamp: new Date().toISOString()
         }]).then(({ error }) => {
             if (error) console.error('Failed to write audit log to Supabase:', error);
@@ -364,25 +347,28 @@ app.post('/api/dispatch', verifyHighwayToken, async (req, res) => {
 // ─────────────────────────────────────────────────────────────
 
 // List all clients
-app.get('/api/clients', authenticateToken, (req, res) => {
-    const clients = loadClients().map(c => ({
+app.get('/api/clients', authenticateToken, async (req, res) => {
+    const { data: clients, error } = await supabase.from('mail_clients').select('*');
+    if (error) return res.status(500).json({ success: false, message: 'Error loading clients.' });
+    
+    const safeClients = clients.map(c => ({
         ...c,
         secret: c.secret.substring(0, 6) + '...' // mask secret in list view
     }));
-    res.json({ success: true, clients });
+    res.json({ success: true, clients: safeClients });
 });
 
 // Register a new client
-app.post('/api/clients/register', authenticateToken, (req, res) => {
+app.post('/api/clients/register', authenticateToken, async (req, res) => {
     const { client_name, domain, allowed_message_types, daily_quota } = req.body;
     if (!client_name || !domain) {
         return res.status(400).json({ success: false, message: 'client_name and domain are required.' });
     }
 
-    const clients = loadClients();
     const client_id = client_name.toLowerCase().replace(/[^a-z0-9]/g, '_');
-
-    if (clients.find(c => c.client_id === client_id)) {
+    
+    const { data: existing, error: checkError } = await supabase.from('mail_clients').select('client_id').eq('client_id', client_id).single();
+    if (existing) {
         return res.status(409).json({ success: false, message: `Client '${client_id}' already exists.` });
     }
 
@@ -394,54 +380,46 @@ app.post('/api/clients/register', authenticateToken, (req, res) => {
         secret,
         allowed_message_types: allowed_message_types || ['transactional', 'notification', 'marketing', 'internal', 'auto_reply'],
         daily_quota: daily_quota || 500,
-        active: true,
-        created_at: new Date().toISOString()
+        active: true
     };
 
-    clients.push(newClient);
-    saveClients(clients);
+    const { error: insertError } = await supabase.from('mail_clients').insert([newClient]);
+    if (insertError) return res.status(500).json({ success: false, message: 'Failed to register client.', error: insertError });
+    
     logActivity('admin', `CLIENT_REGISTERED_${client_id}`, 'SUCCESS');
-
     res.json({ success: true, message: `Client '${client_name}' registered.`, client_id, secret });
 });
 
 // Rotate a client's secret
-app.post('/api/clients/:id/rotate-secret', authenticateToken, (req, res) => {
-    const clients = loadClients();
-    const idx = clients.findIndex(c => c.client_id === req.params.id);
-    if (idx === -1) return res.status(404).json({ success: false, message: 'Client not found.' });
-
+app.post('/api/clients/:id/rotate-secret', authenticateToken, async (req, res) => {
     const newSecret = crypto.randomBytes(48).toString('base64');
-    clients[idx].secret = newSecret;
-    saveClients(clients);
-    logActivity('admin', `CLIENT_SECRET_ROTATED_${req.params.id}`, 'SUCCESS');
+    
+    const { data, error } = await supabase.from('mail_clients')
+        .update({ secret: newSecret })
+        .eq('client_id', req.params.id)
+        .select();
+        
+    if (error || !data.length) return res.status(404).json({ success: false, message: 'Client not found or update failed.' });
 
+    logActivity('admin', `CLIENT_SECRET_ROTATED_${req.params.id}`, 'SUCCESS');
     res.json({ success: true, message: 'Secret rotated. Update the client site immediately.', client_id: req.params.id, secret: newSecret });
 });
 
 // Deactivate a client
-app.post('/api/clients/:id/deactivate', authenticateToken, (req, res) => {
-    const clients = loadClients();
-    const idx = clients.findIndex(c => c.client_id === req.params.id);
-    if (idx === -1) return res.status(404).json({ success: false, message: 'Client not found.' });
+app.post('/api/clients/:id/deactivate', authenticateToken, async (req, res) => {
+    const { data, error } = await supabase.from('mail_clients').update({ active: false }).eq('client_id', req.params.id).select();
+    if (error || !data.length) return res.status(404).json({ success: false, message: 'Client not found.' });
 
-    clients[idx].active = false;
-    saveClients(clients);
     logActivity('admin', `CLIENT_DEACTIVATED_${req.params.id}`, 'SUCCESS');
-
     res.json({ success: true, message: `Client '${req.params.id}' deactivated.` });
 });
 
 // Reactivate a client
-app.post('/api/clients/:id/activate', authenticateToken, (req, res) => {
-    const clients = loadClients();
-    const idx = clients.findIndex(c => c.client_id === req.params.id);
-    if (idx === -1) return res.status(404).json({ success: false, message: 'Client not found.' });
+app.post('/api/clients/:id/activate', authenticateToken, async (req, res) => {
+    const { data, error } = await supabase.from('mail_clients').update({ active: true }).eq('client_id', req.params.id).select();
+    if (error || !data.length) return res.status(404).json({ success: false, message: 'Client not found.' });
 
-    clients[idx].active = true;
-    saveClients(clients);
     logActivity('admin', `CLIENT_ACTIVATED_${req.params.id}`, 'SUCCESS');
-
     res.json({ success: true, message: `Client '${req.params.id}' reactivated.` });
 });
 
@@ -450,13 +428,20 @@ app.post('/api/clients/:id/activate', authenticateToken, (req, res) => {
 // ─────────────────────────────────────────────────────────────
 
 // List all templates
-app.get('/api/templates', authenticateToken, (req, res) => {
-    const templates = loadTemplates();
+app.get('/api/templates', authenticateToken, async (req, res) => {
+    const { data: templatesArray, error } = await supabase.from('mail_templates').select('*');
+    if (error) return res.status(500).json({ success: false, message: 'Error loading templates.' });
+    
+    // Convert array to object keyed by ID to maintain compatibility with frontend
+    const templates = {};
+    if (templatesArray) {
+        templatesArray.forEach(t => templates[t.id] = t);
+    }
     res.json({ success: true, templates });
 });
 
 // Create or update a template
-app.post('/api/templates', authenticateToken, (req, res) => {
+app.post('/api/templates', authenticateToken, async (req, res) => {
     const { id, name, message_type, subject, html, variables } = req.body;
     if (!id || !name || !message_type || !subject || !html) {
         return res.status(400).json({ success: false, message: 'id, name, message_type, subject, and html are required.' });
@@ -467,31 +452,28 @@ app.post('/api/templates', authenticateToken, (req, res) => {
         return res.status(400).json({ success: false, message: `Invalid message_type. Must be one of: ${validTypes.join(', ')}` });
     }
 
-    const templates = loadTemplates();
-    templates[id] = { id, name, message_type, subject, html, variables: variables || [], created_by: 'admin', created_at: new Date().toISOString() };
-    saveTemplates(templates);
-    logActivity('admin', `TEMPLATE_SAVED_${id}`, 'SUCCESS');
+    const newTemplate = { id, name, message_type, subject, html, variables: variables || [], created_by: 'admin' };
+    
+    const { error } = await supabase.from('mail_templates').upsert([newTemplate], { onConflict: 'id' });
+    if (error) return res.status(500).json({ success: false, message: 'Failed to save template.', error });
 
+    logActivity('admin', `TEMPLATE_SAVED_${id}`, 'SUCCESS');
     res.json({ success: true, message: `Template '${id}' saved.` });
 });
 
 // Delete a template
-app.delete('/api/templates/:id', authenticateToken, (req, res) => {
-    const templates = loadTemplates();
-    if (!templates[req.params.id]) return res.status(404).json({ success: false, message: 'Template not found.' });
+app.delete('/api/templates/:id', authenticateToken, async (req, res) => {
+    const { data, error } = await supabase.from('mail_templates').delete().eq('id', req.params.id).select();
+    if (error || !data.length) return res.status(404).json({ success: false, message: 'Template not found or delete failed.' });
 
-    delete templates[req.params.id];
-    saveTemplates(templates);
     logActivity('admin', `TEMPLATE_DELETED_${req.params.id}`, 'SUCCESS');
-
     res.json({ success: true, message: `Template '${req.params.id}' deleted.` });
 });
 
 // Test a template (sends a preview email to admin)
 app.post('/api/templates/:id/test', authenticateToken, async (req, res) => {
-    const templates = loadTemplates();
-    const tmpl = templates[req.params.id];
-    if (!tmpl) return res.status(404).json({ success: false, message: 'Template not found.' });
+    const { data: tmpl, error } = await supabase.from('mail_templates').select('*').eq('id', req.params.id).single();
+    if (error || !tmpl) return res.status(404).json({ success: false, message: 'Template not found.' });
 
     const vars = req.body.variables || {};
     const renderedSubject = renderTemplate(tmpl.subject, vars);
@@ -994,38 +976,31 @@ app.get('/api/system/health', (req, res) => {
 });
 
 // SECURED API: System Analytics (GDPR Compliant Aggregation)
-app.get('/api/analytics', authenticateToken, (req, res) => {
-    // Read local logs and count dispatches to create aggregated, anonymized data
-    const logPath = path.join(__dirname, 'logs.txt');
-    if (!fs.existsSync(logPath)) {
-        return res.json({ success: true, totalEmailsSent: 0, activeClients: 0 });
-    }
-    
-    fs.readFile(logPath, 'utf8', (err, data) => {
-        if (err) return res.status(500).json({ success: false, message: 'Failed to read audit logs.' });
-        
-        const lines = data.split('\n');
-        let totalEmails = 0;
-        let clients = new Set();
+app.get('/api/analytics', authenticateToken, async (req, res) => {
+    try {
+        // Run aggregation queries on Supabase
+        const { count: totalEmails, error: emailErr } = await supabase
+            .from('audit_logs')
+            .select('*', { count: 'exact', head: true });
+            
+        const { count: activeClients, error: clientErr } = await supabase
+            .from('mail_clients')
+            .select('*', { count: 'exact', head: true })
+            .eq('active', true);
 
-        lines.forEach(line => {
-            if (line.includes('DISPATCHED_TO_') || line.includes('BROADCAST_SENT') || line.includes('EMAIL_NOTIFICATION_SENT')) {
-                totalEmails++;
-            }
-            if (line.includes('HIGHWAY_[')) {
-                const match = line.match(/HIGHWAY_\[(.*?)\]/);
-                if (match) clients.add(match[1]);
-            }
-        });
+        if (emailErr || clientErr) {
+            return res.status(500).json({ success: false, message: 'Failed to fetch analytics from Supabase.' });
+        }
 
         res.json({
             success: true,
-            totalEmailsSent: totalEmails,
-            activeClients: clients.size
+            totalEmailsSent: totalEmails || 0,
+            activeClients: activeClients || 0
         });
-    });
+    } catch (err) {
+        res.status(500).json({ success: false, message: 'Analytics aggregation error.' });
+    }
 });
 
-app.listen(PORT, () => {
-    console.log(`\n🚀 Secure Mail Server Active on http://localhost:${PORT}/login.html`);
-});
+// Serverless Export
+module.exports = app;
